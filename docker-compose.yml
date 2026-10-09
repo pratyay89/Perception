@@ -1,0 +1,25 @@
+# Local PostgreSQL for development.
+#
+#   docker compose up -d db
+#
+# Then set in backend/.env:
+#   DATABASE_URL=postgresql+asyncpg://perception:perception@localhost:5432/perception
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: perception
+      POSTGRES_PASSWORD: perception
+      POSTGRES_DB: perception
+    ports:
+      - "5432:5432"
+    volumes:
+      - perception-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U perception -d perception"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  perception-db:

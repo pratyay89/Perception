@@ -29,8 +29,11 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Environment configurations for the runner
+# A container is a deployment: require SECRET_KEY and turn off /docs.
+# Override with -e ENVIRONMENT=development if you really want a dev container.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    ENVIRONMENT=production \
     PATH="/opt/venv/bin:$PATH"
 
 # Create a non-root user and group for security

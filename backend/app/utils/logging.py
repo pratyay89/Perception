@@ -4,7 +4,8 @@ structlog.configure(
     processors=[
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
-        structlog.dev.ConsoleRenderer(colors=True),
+        # Colours are switched on automatically where the terminal supports them
+        structlog.dev.ConsoleRenderer(),
     ],
 )
 

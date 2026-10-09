@@ -223,3 +223,9 @@ pyrightconfig.json
 .vscode/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,nextjs,firebase
+# Local databases and secrets
+*.db
+*.db-journal
+.env
+.venv
+.dev_secret_key

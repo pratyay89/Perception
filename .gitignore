@@ -223,3 +223,13 @@ pyrightconfig.json
 .vscode/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,nextjs,firebase
+# --- Perception ---
+# The Python template above ignores every "lib/" folder. The frontend keeps
+# its shared code in peak-app/src/lib, which must be committed.
+!peak-app/src/lib/
+!peak-app/src/lib/**
+
+# Local development database and generated secret
+*.db
+*.db-journal
+.dev_secret_key

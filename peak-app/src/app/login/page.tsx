@@ -6,7 +6,7 @@ export default function LoginPage() {
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex flex-col justify-center gap-2 md:justify-start">
           <a href="#" className="flex items-center gap-2 font-medium">
-            <img src="logo.jpg" alt="Logo" className="h-8 w-8 rounded-lg" />
+            <img src="/logo.jpg" alt="Logo" className="h-8 w-8 rounded-lg" />
             <p className="text-3xl font-bold">Perception</p>
           </a>
           <p className="m-2 text-lg">

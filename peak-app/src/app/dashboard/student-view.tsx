@@ -2,9 +2,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QPCard } from "./qp-card";
-import { auth } from "@/firebase";
-import { signOut } from "firebase/auth";
-import { api } from "@/axios";
+import { api, errorMessage } from "@/lib/api";
+import { clearSession } from "@/lib/auth";
+import { getInitials, STATUS_LABEL } from "@/lib/format";
+import type { PaperSummary } from "@/lib/types";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -16,30 +18,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import {
   LogOut,
-  User,
   Search,
-  BookOpen,
   FileText,
   CheckSquare,
-  Clock,
   RefreshCw,
   PencilLine,
   ChevronRight,
   List,
   Grid,
-  CheckCircle,
   AlertTriangle,
-  Calendar,
   Trophy,
   GraduationCap,
 } from "lucide-react";
@@ -53,14 +50,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface Paper {
-  _id: string;
-  title: string;
-  expired: boolean;
-  evaluated: boolean;
-  attempted: boolean;
-  user_type: "student";
-}
+type Paper = PaperSummary;
 
 interface StudentViewProps {
   email: string;
@@ -75,10 +65,8 @@ export function StudentDashboard({ email }: StudentViewProps) {
   const [selectedTab, setSelectedTab] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // Get initials from email
-  const getInitials = (email: string) => {
-    return email.split("@")[0].substring(0, 2).toUpperCase();
-  };
+  const isExpired = (paper: Paper) => paper.status === "closed";
+  const isOpen = (paper: Paper) => paper.status === "open";
 
   const filteredPapers = papers.filter((paper) => {
     const matchesSearch = paper.title
@@ -86,30 +74,27 @@ export function StudentDashboard({ email }: StudentViewProps) {
       .includes(searchQuery.toLowerCase());
 
     if (selectedTab === "all") return matchesSearch;
-    if (selectedTab === "active") return !paper.expired && matchesSearch;
+    if (selectedTab === "active") return !isExpired(paper) && matchesSearch;
     if (selectedTab === "attempted") return paper.attempted && matchesSearch;
     if (selectedTab === "evaluated") return paper.evaluated && matchesSearch;
-    if (selectedTab === "expired") return paper.expired && matchesSearch;
+    if (selectedTab === "expired") return isExpired(paper) && matchesSearch;
 
     return matchesSearch;
   });
 
   // Derived state for statistics
-  const activePapers = papers.filter((paper) => !paper.expired);
   const attemptedPapers = papers.filter((paper) => paper.attempted);
   const evaluatedPapers = papers.filter((paper) => paper.evaluated);
   const pendingPapers = papers.filter(
-    (paper) => !paper.expired && !paper.attempted
+    (paper) => isOpen(paper) && !paper.attempted
   );
 
   const fetchPapers = async () => {
     try {
-      const response = await api.get("/paper/list", {
-        params: { email: email, user_type: "student" },
-      });
-      setPapers(response.data.papers);
+      const response = await api.get<Paper[]>("/papers");
+      setPapers(response.data);
     } catch (error) {
-      console.error("Failed to fetch papers:", error);
+      toast.error(errorMessage(error, "Failed to fetch papers"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -125,13 +110,9 @@ export function StudentDashboard({ email }: StudentViewProps) {
     fetchPapers();
   }, [email]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+  const handleLogout = () => {
+    clearSession();
+    router.push("/login");
   };
 
   return (
@@ -347,20 +328,13 @@ export function StudentDashboard({ email }: StudentViewProps) {
                 <AnimatePresence>
                   {filteredPapers.map((paper) => (
                     <motion.div
-                      key={paper._id}
+                      key={paper.qpid}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <QPCard
-                        id={paper._id}
-                        title={paper.title}
-                        expired={paper.expired}
-                        evaluated={paper.evaluated}
-                        user_type="student"
-                        attempted={paper.attempted}
-                      />
+                      <QPCard paper={paper} user_type="student" />
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -378,13 +352,13 @@ export function StudentDashboard({ email }: StudentViewProps) {
                   <TableBody>
                     {filteredPapers.map((paper) => (
                       <TableRow
-                        key={paper._id}
+                        key={paper.qpid}
                         className="cursor-pointer hover:bg-gray-50"
                         onClick={() => {
                           if (paper.attempted) {
-                            router.push(`/view-paper/${paper._id}`);
-                          } else if (!paper.expired) {
-                            router.push(`/attempt-paper/${paper._id}`);
+                            router.push(`/view-paper/${paper.qpid}`);
+                          } else if (isOpen(paper)) {
+                            router.push(`/attempt-paper/${paper.qpid}`);
                           }
                         }}
                       >
@@ -395,15 +369,17 @@ export function StudentDashboard({ email }: StudentViewProps) {
                           <div className="flex flex-wrap gap-2">
                             <Badge
                               variant={
-                                paper.expired ? "destructive" : "outline"
+                                isExpired(paper) ? "destructive" : "outline"
                               }
                               className={
-                                paper.expired
+                                isExpired(paper)
                                   ? ""
                                   : "bg-green-50 text-green-600"
                               }
                             >
-                              {paper.expired ? "Expired" : "Active"}
+                              {isExpired(paper)
+                                ? "Expired"
+                                : STATUS_LABEL[paper.status]}
                             </Badge>
 
                             {paper.attempted && (
@@ -426,7 +402,7 @@ export function StudentDashboard({ email }: StudentViewProps) {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          {!paper.expired && !paper.attempted ? (
+                          {isOpen(paper) && !paper.attempted ? (
                             <Button
                               variant="default"
                               size="sm"
@@ -447,7 +423,9 @@ export function StudentDashboard({ email }: StudentViewProps) {
                               className="h-8"
                               disabled
                             >
-                              Expired
+                              {paper.status === "scheduled"
+                                ? "Not Started"
+                                : "Expired"}
                             </Button>
                           )}
                         </TableCell>

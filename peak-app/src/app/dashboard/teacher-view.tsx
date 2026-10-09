@@ -1,11 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QPCard } from "./qp-card";
-import { auth } from "@/firebase";
-import { signOut } from "firebase/auth";
-import { api } from "@/axios";
-import Image from "next/image";
+import { QPCard, isFullyEvaluated } from "./qp-card";
+import { api, errorMessage } from "@/lib/api";
+import { clearSession } from "@/lib/auth";
+import { getInitials, STATUS_LABEL } from "@/lib/format";
+import type {
+  AssociatedUser,
+  AssociationsResponse,
+  PaperSummary,
+} from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -36,10 +40,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -62,13 +66,7 @@ import {
 
 import { toast } from "sonner";
 
-interface Paper {
-  _id: string;
-  title: string;
-  expired: boolean;
-  evaluated: boolean;
-  user_type: "teacher";
-}
+type Paper = PaperSummary;
 
 interface TeacherViewProps {
   email: string;
@@ -78,20 +76,21 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
   const router = useRouter();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [loading, setLoading] = useState(true);
-  const [students, setStudents] = useState<Array<string>>([]);
+  const [students, setStudents] = useState<AssociatedUser[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedTab, setSelectedTab] = useState<string>("all");
   const [addStudentQuery, setAddStudentQuery] = useState<string>("");
+  const [addingStudent, setAddingStudent] = useState<boolean>(false);
 
-  const getInitials = (email: string) => {
-    return email.split("@")[0].substring(0, 2).toUpperCase();
-  };
+  // "Ongoing" papers are visible to students: open now, or scheduled to open.
+  const isOngoing = (paper: Paper) =>
+    paper.status === "open" || paper.status === "scheduled";
+  const isExpired = (paper: Paper) => paper.status === "closed";
 
-  const ongoingPapers = papers.filter((paper) => !paper.expired);
-  const expiredPapers = papers.filter((paper) => paper.expired);
-  const evaluatedPapers = papers.filter((paper) => paper.evaluated);
+  const ongoingPapers = papers.filter(isOngoing);
+  const evaluatedPapers = papers.filter(isFullyEvaluated);
 
   const filteredPapers = papers.filter((paper) => {
     const matchesSearch = paper.title
@@ -99,23 +98,22 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
       .includes(searchQuery.toLowerCase());
 
     if (selectedTab === "all") return matchesSearch;
-    if (selectedTab === "ongoing") return !paper.expired && matchesSearch;
-    if (selectedTab === "expired") return paper.expired && matchesSearch;
-    if (selectedTab === "evaluated") return paper.evaluated && matchesSearch;
+    if (selectedTab === "ongoing") return isOngoing(paper) && matchesSearch;
+    if (selectedTab === "drafts")
+      return paper.status === "draft" && matchesSearch;
+    if (selectedTab === "expired") return isExpired(paper) && matchesSearch;
+    if (selectedTab === "evaluated")
+      return isFullyEvaluated(paper) && matchesSearch;
 
     return matchesSearch;
   });
 
   const fetchPapers = async () => {
     try {
-      const response = await api.get("/paper/list", {
-        params: { email: email, user_type: "teacher" },
-      });
-      setPapers(response.data.papers);
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.detail || "Failed to fetch papers";
-      toast.error(errorMessage);
+      const response = await api.get<Paper[]>("/papers");
+      setPapers(response.data);
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to fetch papers"));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -124,51 +122,53 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
 
   const getStudents = async () => {
     try {
-      const response = await api.get("/studentlist", {
-        params: { email },
-      });
-      setStudents(response.data.students);
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.detail || "Failed to fetch students";
-      toast.error(errorMessage);
+      const response = await api.get<AssociationsResponse>(
+        "/auth/associations"
+      );
+      setStudents(response.data.users);
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to fetch students"));
     }
   };
 
   const handleRemoveStudent = async (studentEmail: string) => {
     try {
-      await api.delete("/tsa", {
-        data: { teacher_email: email, student_email: studentEmail },
+      await api.delete("/auth/associations", {
+        params: { s_email: studentEmail },
       });
       toast.success("Student removed successfully");
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.detail || "Failed to remove student";
-      toast.error(errorMessage);
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to remove student"));
     } finally {
       getStudents();
     }
   };
 
   const handleAddStudent = async () => {
+    const studentEmail = addStudentQuery.trim();
+    if (!studentEmail) {
+      toast.error("Enter the student's email address");
+      return;
+    }
+
+    setAddingStudent(true);
     try {
-      await api.post("/tsa", {
-        teacher_email: email,
-        student_email: addStudentQuery,
+      await api.post("/auth/associations", null, {
+        params: { s_email: studentEmail },
       });
       toast.success("Student added successfully");
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.detail || "Failed to add student";
-      toast.error(errorMessage);
+      setAddStudentQuery("");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to add student"));
     } finally {
+      setAddingStudent(false);
       getStudents();
     }
   };
 
   const refreshData = async () => {
     setRefreshing(true);
-    await fetchPapers();
+    await Promise.all([fetchPapers(), getStudents()]);
   };
 
   useEffect(() => {
@@ -176,13 +176,9 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
     getStudents();
   }, [email]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+  const handleLogout = () => {
+    clearSession();
+    router.push("/login");
   };
 
   const handleCreatePaper = () => {
@@ -277,16 +273,24 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
                           <div className="relative flex-1">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                             <Input
-                              placeholder="Search students..."
+                              type="email"
+                              placeholder="Student's email address"
                               className="pl-9"
+                              value={addStudentQuery}
                               onChange={(e) =>
                                 setAddStudentQuery(e.target.value)
                               }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleAddStudent();
+                              }}
                             />
                           </div>
-                          <Button variant="default" onClick={handleAddStudent}>
-                            {" "}
-                            Add Student
+                          <Button
+                            variant="default"
+                            onClick={handleAddStudent}
+                            disabled={addingStudent}
+                          >
+                            {addingStudent ? "Adding..." : "Add Student"}
                           </Button>
                         </div>
 
@@ -304,38 +308,43 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
                               </TableHeader>
                               <TableBody>
                                 {students.length > 0 ? (
-                                  students.map(
-                                    (email: string, index: number) => (
-                                      <TableRow key={index}>
-                                        <TableCell className="flex items-center gap-2">
-                                          <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium">
-                                            {getInitials(email)}
-                                          </div>
-                                          <div>
-                                            <p className="text-sm">{email}</p>
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() =>
-                                              handleRemoveStudent(email)
-                                            }
-                                          >
-                                            <Delete className="h-4 w-4" />
-                                          </Button>
-                                        </TableCell>
-                                      </TableRow>
-                                    )
-                                  )
+                                  students.map((student) => (
+                                    <TableRow key={student.email}>
+                                      <TableCell className="flex items-center gap-2">
+                                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium">
+                                          {getInitials(student.email)}
+                                        </div>
+                                        <div>
+                                          <p className="text-sm font-medium">
+                                            {student.full_name}
+                                          </p>
+                                          <p className="text-xs text-gray-500">
+                                            {student.email}
+                                          </p>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          aria-label={`Remove ${student.email}`}
+                                          onClick={() =>
+                                            handleRemoveStudent(student.email)
+                                          }
+                                        >
+                                          <Delete className="h-4 w-4" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))
                                 ) : (
                                   <TableRow>
                                     <TableCell colSpan={2}>
                                       <div className="text-center py-6 text-sm text-gray-500">
                                         <p>No students found</p>
                                         <p className="text-xs mt-1">
-                                          Add students to get started
+                                          Add a student by the email they
+                                          signed up with
                                         </p>
                                       </div>
                                     </TableCell>
@@ -445,7 +454,7 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
               No assessments created yet
             </h3>
             <p className="text-gray-500 mb-6 max-w-md">
-              Create your first assessment to start evaluating your students'
+              Create your first assessment to start evaluating your students&apos;
               understanding.
             </p>
             <Button
@@ -468,6 +477,7 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
                 <TabsList>
                   <TabsTrigger value="all">All Papers</TabsTrigger>
                   <TabsTrigger value="ongoing">Ongoing</TabsTrigger>
+                  <TabsTrigger value="drafts">Drafts</TabsTrigger>
                   <TabsTrigger value="expired">Expired</TabsTrigger>
                   <TabsTrigger value="evaluated">Evaluated</TabsTrigger>
                 </TabsList>
@@ -521,18 +531,16 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
                 <AnimatePresence>
                   {filteredPapers.map((paper) => (
                     <motion.div
-                      key={paper._id}
+                      key={paper.qpid}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
                     >
                       <QPCard
-                        id={paper._id}
-                        title={paper.title}
-                        expired={paper.expired}
-                        evaluated={paper.evaluated}
+                        paper={paper}
                         user_type="teacher"
+                        onChanged={fetchPapers}
                       />
                     </motion.div>
                   ))}
@@ -551,9 +559,9 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
                   <TableBody>
                     {filteredPapers.map((paper) => (
                       <TableRow
-                        key={paper._id}
+                        key={paper.qpid}
                         className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => router.push(`/view-paper/${paper._id}`)}
+                        onClick={() => router.push(`/view-paper/${paper.qpid}`)}
                       >
                         <TableCell className="font-medium">
                           {paper.title}
@@ -562,12 +570,14 @@ export function TeacherDashboard({ email }: TeacherViewProps) {
                           <div className="flex gap-2">
                             <Badge
                               variant={
-                                paper.expired ? "destructive" : "outline"
+                                isExpired(paper) ? "destructive" : "outline"
                               }
                             >
-                              {paper.expired ? "Expired" : "Active"}
+                              {isExpired(paper)
+                                ? "Expired"
+                                : STATUS_LABEL[paper.status]}
                             </Badge>
-                            {paper.evaluated && (
+                            {isFullyEvaluated(paper) && (
                               <Badge variant="secondary">Evaluated</Badge>
                             )}
                           </div>

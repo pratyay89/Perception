@@ -79,24 +79,37 @@ async def student_auth_headers_sub(student_credentials_sub):
 
 
 @pytest_asyncio.fixture(loop_scope="session", scope="function")
-async def sample_paper(teacher_auth_headers_sub):
+async def sample_paper(
+    teacher_auth_headers_sub, student_credentials_sub, student_auth_headers_sub
+):
+    # A student can only answer papers of a teacher whose class they are in.
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            "/api/auth/associations",
+            params={"s_email": student_credentials_sub["email"]},
+            headers=teacher_auth_headers_sub,
+        )
+        assert response.status_code == 200
+
     payload = {
-        "title": "Submissions Test Paper",
+        "title": "Computer Architecture & Networks Test",
         "start_date": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
         "duration_minutes": 120,
         "is_published": True,
         "questions": [
             {
-                "question_text": "What is the capital of France?",
-                "model_answer": "Paris",
-                "rubric": "1 mark for Paris",
+                "question_text": "What does the CPU register PC (program counter) hold?",
+                "model_answer": "Address of the next instruction",
+                "rubric": "1 mark for address of the next instruction",
                 "marks_assigned": 1.0,
                 "sort_order": 1,
             },
             {
-                "question_text": "What is 5 + 5?",
-                "model_answer": "10",
-                "rubric": "1 mark for 10",
+                "question_text": "Which transport layer protocol provides reliable, ordered delivery?",
+                "model_answer": "TCP",
+                "rubric": "1 mark for TCP",
                 "marks_assigned": 1.0,
                 "sort_order": 2,
             },
@@ -128,8 +141,8 @@ async def test_create_submission_success(student_auth_headers_sub, sample_paper)
 
     payload = {
         "answers": [
-            {"qid": q1_id, "student_answer": "Paris"},
-            {"qid": q2_id, "student_answer": "10"},
+            {"qid": q1_id, "student_answer": "Address of the next instruction"},
+            {"qid": q2_id, "student_answer": "TCP"},
         ]
     }
 
@@ -159,7 +172,7 @@ async def test_create_submission_as_teacher_fails(
 
     payload = {
         "answers": [
-            {"qid": q1_id, "student_answer": "Paris"},
+            {"qid": q1_id, "student_answer": "Address of the next instruction"},
         ]
     }
 

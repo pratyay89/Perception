@@ -12,7 +12,15 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 
-import { api } from "@/axios";
+import { api, errorMessage } from "@/lib/api";
+import {
+  formatMarks,
+  gradeFor,
+  num,
+  percentage,
+  scoreColor,
+} from "@/lib/format";
+import type { PaperDetail, SubmissionDetail } from "@/lib/types";
 import { Loading } from "@/components/loading";
 import { toast } from "sonner";
 import {
@@ -23,36 +31,26 @@ import {
   Award,
   X,
   BookOpen,
-  BarChart4,
-  Flame,
-  Target,
-  CheckSquare,
-  Sparkles,
   AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-interface Scores {
-  clarity: number;
-  relevance: number;
-  accuracy: number;
-  completeness: number;
-  average: number;
-}
-
 interface QuestionAndAnswer {
+  qid: number;
   question: string;
+  maxMarks: number;
   answer: string;
-  scores?: Scores;
-  feedback?: string;
+  marks: number;
+  feedback: string | null;
 }
 
-interface StudentViewProps {
+interface StudentPaper {
   title: string;
   expired: boolean;
   evaluated: boolean;
   qs_and_ans: QuestionAndAnswer[];
   total_score: number;
+  total_marks: number;
 }
 
 interface ViewProps {
@@ -62,88 +60,53 @@ interface ViewProps {
 
 export function StudentView({ id, email }: ViewProps) {
   const router = useRouter();
-  const [paper, setPaper] = useState<StudentViewProps>({
+  const [paper, setPaper] = useState<StudentPaper>({
     title: "",
     expired: false,
     evaluated: false,
     qs_and_ans: [],
     total_score: 0,
+    total_marks: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<number | null>(0);
-
-  const calculateGrade = (
-    score: number,
-    total: number
-  ): { letter: string; color: string; feedback: string } => {
-    const percentage = (score / total) * 100;
-
-    if (percentage >= 90)
-      return {
-        letter: "S",
-        color: "text-green-600",
-        feedback:
-          "Excellent work! Your responses show exceptional understanding.",
-      };
-    if (percentage >= 80)
-      return {
-        letter: "A",
-        color: "text-emerald-600",
-        feedback:
-          "Very good! You've demonstrated solid knowledge of the material.",
-      };
-    if (percentage >= 70)
-      return {
-        letter: "B",
-        color: "text-blue-600",
-        feedback:
-          "Good effort. You understand the core concepts but there's room for improvement.",
-      };
-    if (percentage >= 60)
-      return {
-        letter: "C",
-        color: "text-amber-600",
-        feedback:
-          "You've grasped some concepts, but need to work on your understanding.",
-      };
-    if (percentage >= 50)
-      return {
-        letter: "D",
-        color: "text-yellow-600",
-        feedback:
-          "Your understanding is below average. Please review the material.",
-      };
-    return {
-      letter: "F",
-      color: "text-red-600",
-      feedback:
-        "Your understanding needs significant improvement. Please review the material.",
-    };
-  };
-
-  const scoreColor = (score: number) => {
-    if (score >= 9) return "bg-green-500";
-    if (score >= 8) return "bg-emerald-500";
-    if (score >= 7) return "bg-yellow-500";
-    if (score >= 6) return "bg-orange-500";
-    return "bg-red-500";
-  };
+  const [activeTab, setActiveTab] = useState<number>(0);
 
   useEffect(() => {
     let mounted = true;
 
     const fetchPaper = async () => {
       try {
-        const response = await api.get(`/paper/view/${id}`, {
-          params: { viewer_email: email, viewer_type: "student" },
+        const [paperRes, submissionRes] = await Promise.all([
+          api.get<PaperDetail>(`/papers/${id}`),
+          api.get<SubmissionDetail>(
+            `/submissions/${id}/${encodeURIComponent(email)}`
+          ),
+        ]);
+        if (!mounted) return;
+
+        const answers = new Map(
+          submissionRes.data.answers.map((a) => [a.qid, a])
+        );
+        setPaper({
+          title: paperRes.data.title,
+          expired: paperRes.data.status === "closed",
+          evaluated: submissionRes.data.evaluated,
+          total_score: num(submissionRes.data.total_marks_obtained),
+          total_marks: num(paperRes.data.total_marks),
+          qs_and_ans: paperRes.data.questions.map((q) => {
+            const answer = answers.get(q.qid);
+            return {
+              qid: q.qid,
+              question: q.question_text,
+              maxMarks: num(q.marks_assigned),
+              answer: answer?.student_answer || "",
+              marks: num(answer?.marks_obtained),
+              feedback: answer?.feedback ?? null,
+            };
+          }),
         });
-        if (mounted) {
-          setPaper(response.data);
-        }
-      } catch (error: any) {
-        const errorMessage =
-          error.response?.data?.detail || "An error occurred";
-        toast.error(errorMessage);
+      } catch (error) {
+        toast.error(errorMessage(error, "An error occurred"));
         router.push("/dashboard");
       } finally {
         if (mounted) {
@@ -157,13 +120,13 @@ export function StudentView({ id, email }: ViewProps) {
     return () => {
       mounted = false;
     };
-  }, [id, email]);
+  }, [id, email, router]);
 
   if (loading) return <Loading />;
 
-  const maxPossibleScore = paper.qs_and_ans.length * 10;
-  const scorePercentage = (paper.total_score / maxPossibleScore) * 100;
-  const grade = calculateGrade(paper.total_score, maxPossibleScore);
+  const maxPossibleScore = paper.total_marks;
+  const scorePercentage = percentage(paper.total_score, maxPossibleScore);
+  const grade = gradeFor(paper.total_score, maxPossibleScore);
 
   return (
     <div className="space-y-6">
@@ -171,7 +134,7 @@ export function StudentView({ id, email }: ViewProps) {
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <div
           className="flex items-center mb-4 text-primary hover:text-primary/90 transition-colors cursor-pointer"
-          onClick={() => router.back()}
+          onClick={() => router.push("/dashboard")}
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           <span className="text-sm font-medium">Back to Dashboard</span>
@@ -249,15 +212,16 @@ export function StudentView({ id, email }: ViewProps) {
                         Score
                       </div>
                       <div className="text-sm font-bold">
-                        {paper.total_score} / {maxPossibleScore}
+                        {formatMarks(paper.total_score)} /{" "}
+                        {formatMarks(maxPossibleScore)}
                       </div>
                     </div>
                     <div className="relative pt-1">
                       <Progress value={scorePercentage} className="h-3" />
                       <div className="flex justify-between text-xs text-gray-500 mt-1">
                         <span>0</span>
-                        <span>5</span>
-                        <span>10</span>
+                        <span>{formatMarks(maxPossibleScore / 2)}</span>
+                        <span>{formatMarks(maxPossibleScore)}</span>
                       </div>
                     </div>
                   </div>
@@ -325,13 +289,13 @@ export function StudentView({ id, email }: ViewProps) {
           </CardHeader>
           <CardContent className="p-0">
             <Tabs
-              defaultValue={activeTab?.toString() || "0"}
+              value={activeTab.toString()}
               onValueChange={(v) => setActiveTab(Number(v))}
             >
               <TabsList className="w-full justify-start border-b rounded-none p-0 h-auto overflow-x-auto flex-nowrap">
-                {paper.qs_and_ans.map((_, index) => (
+                {paper.qs_and_ans.map((qa, index) => (
                   <TabsTrigger
-                    key={index}
+                    key={qa.qid}
                     value={index.toString()}
                     className="data-[state=active]:bg-gray-100 rounded-none border-b-2 data-[state=active]:border-primary"
                   >
@@ -343,7 +307,7 @@ export function StudentView({ id, email }: ViewProps) {
               <div className="p-0">
                 {paper.qs_and_ans.map((qa, index) => (
                   <TabsContent
-                    key={index}
+                    key={qa.qid}
                     value={index.toString()}
                     className="m-0"
                   >
@@ -359,21 +323,26 @@ export function StudentView({ id, email }: ViewProps) {
                         <div className="space-y-3">
                           <div className="flex justify-between items-start">
                             <Badge variant="outline" className="mb-2">
-                              Question {index + 1}
+                              Question {index + 1} · {formatMarks(qa.maxMarks)}{" "}
+                              marks
                             </Badge>
-                            {paper.evaluated && qa.scores && (
+                            {paper.evaluated && (
                               <Badge
                                 variant="outline"
                                 className={`${scoreColor(
-                                  qa.scores.average
+                                  qa.marks,
+                                  qa.maxMarks
                                 )} text-white ml-auto`}
                               >
-                                {qa.scores.average.toFixed(1)}/10
+                                {formatMarks(qa.marks)}/
+                                {formatMarks(qa.maxMarks)}
                               </Badge>
                             )}
                           </div>
                           <div className="bg-gray-50 p-4 rounded-lg border">
-                            <p className="text-gray-900">{qa.question}</p>
+                            <p className="text-gray-900 whitespace-pre-wrap">
+                              {qa.question}
+                            </p>
                           </div>
                         </div>
 
@@ -386,8 +355,10 @@ export function StudentView({ id, email }: ViewProps) {
                             Answer
                           </h3>
                           <div className="bg-gray-50 p-4 rounded-lg border min-h-[100px]">
-                            {qa.answer ? (
-                              <p className="text-gray-900">{qa.answer}</p>
+                            {qa.answer.trim() ? (
+                              <p className="text-gray-900 whitespace-pre-wrap">
+                                {qa.answer}
+                              </p>
                             ) : (
                               <p className="text-gray-400 italic">
                                 No answer provided
@@ -397,7 +368,7 @@ export function StudentView({ id, email }: ViewProps) {
                         </div>
 
                         {/* Evaluation - Only show if evaluated */}
-                        {paper.evaluated && qa.scores && (
+                        {paper.evaluated && (
                           <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -405,67 +376,19 @@ export function StudentView({ id, email }: ViewProps) {
                             className="pt-4"
                           >
                             <Separator className="mb-4" />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {/* Scores */}
-                              <div className="space-y-4">
-                                <h4 className="text-sm font-medium flex items-center gap-1.5">
-                                  <BarChart4 className="h-4 w-4" /> Score
-                                  Breakdown
-                                </h4>
-                                <div className="space-y-3">
-                                  <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                      <span className="flex items-center gap-1">
-                                        <Sparkles className="h-3 w-3 text-blue-500" />{" "}
-                                        Clarity
-                                      </span>
-                                      <span>{qa.scores.clarity}/10</span>
-                                    </div>
-                                    <Progress
-                                      value={qa.scores.clarity * 10}
-                                      className="h-1.5"
-                                    />
-                                  </div>
-                                  <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                      <span className="flex items-center gap-1">
-                                        <Target className="h-3 w-3 text-purple-500" />{" "}
-                                        Relevance
-                                      </span>
-                                      <span>{qa.scores.relevance}/10</span>
-                                    </div>
-                                    <Progress
-                                      value={qa.scores.relevance * 10}
-                                      className="h-1.5"
-                                    />
-                                  </div>
-                                  <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                      <span className="flex items-center gap-1">
-                                        <CheckSquare className="h-3 w-3 text-green-500" />{" "}
-                                        Accuracy
-                                      </span>
-                                      <span>{qa.scores.accuracy}/10</span>
-                                    </div>
-                                    <Progress
-                                      value={qa.scores.accuracy * 10}
-                                      className="h-1.5"
-                                    />
-                                  </div>
-                                  <div>
-                                    <div className="flex justify-between text-xs mb-1">
-                                      <span className="flex items-center gap-1">
-                                        <Flame className="h-3 w-3 text-amber-500" />{" "}
-                                        Completeness
-                                      </span>
-                                      <span>{qa.scores.completeness}/10</span>
-                                    </div>
-                                    <Progress
-                                      value={qa.scores.completeness * 10}
-                                      className="h-1.5"
-                                    />
-                                  </div>
+                            <div className="space-y-4">
+                              <div>
+                                <div className="flex justify-between text-sm mb-1">
+                                  <span className="font-medium">Marks</span>
+                                  <span>
+                                    {formatMarks(qa.marks)} of{" "}
+                                    {formatMarks(qa.maxMarks)}
+                                  </span>
                                 </div>
+                                <Progress
+                                  value={percentage(qa.marks, qa.maxMarks)}
+                                  className="h-1.5"
+                                />
                               </div>
 
                               {/* Feedback */}
@@ -473,7 +396,7 @@ export function StudentView({ id, email }: ViewProps) {
                                 <h4 className="text-sm font-medium flex items-center gap-1.5">
                                   <FileText className="h-4 w-4" /> Feedback
                                 </h4>
-                                <div className="bg-gray-50 p-4 rounded-lg border text-sm text-gray-800 min-h-[150px]">
+                                <div className="bg-gray-50 p-4 rounded-lg border text-sm text-gray-800 min-h-[80px] whitespace-pre-wrap">
                                   {qa.feedback ||
                                     "No specific feedback provided for this answer."}
                                 </div>
@@ -490,7 +413,7 @@ export function StudentView({ id, email }: ViewProps) {
           </CardContent>
           <CardFooter className="border-t bg-gray-50/80 py-4 justify-between">
             <div className="text-xs text-gray-500">
-              Question {activeTab! + 1} of {paper.qs_and_ans.length}
+              Question {activeTab + 1} of {paper.qs_and_ans.length}
             </div>
           </CardFooter>
         </Card>

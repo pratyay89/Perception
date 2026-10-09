@@ -5,8 +5,8 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 
-from app.database import AsyncSessionLocal
 from app.auth.model import AppUser, Association
+from app.database import AsyncSessionLocal
 from main import app
 
 

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword } from "firebase/auth";
 import { toast } from "sonner";
 
 // Components
@@ -20,16 +19,18 @@ import { Label } from "@/components/ui/label";
 
 // Utils
 import { cn } from "@/lib/utils";
-import { auth } from "@/firebase";
-import { api } from "@/axios";
+import { api, errorMessage } from "@/lib/api";
 
 interface SignUpFormProps extends React.ComponentPropsWithoutRef<"div"> {
   className?: string;
 }
 
+const MIN_PASSWORD_LENGTH = 8;
+
 export function SignUpForm({ className, ...props }: SignUpFormProps) {
   const router = useRouter();
 
+  const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [type, setType] = useState<"teacher" | "student">("student");
@@ -38,25 +39,29 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+      return;
+    }
+
     try {
       setError("");
       setLoading(true);
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
 
-      await api.post("/type", {
-        email: userCredential.user.email,
+      await api.post("/auth/signup", {
+        email: email.trim(),
+        password,
+        full_name: fullName.trim(),
         user_type: type,
       });
 
       toast.success("Account created successfully");
       router.push("/login");
     } catch (err) {
+      const message = errorMessage(err, "Failed to sign up");
       toast.error("Failed to sign up");
-      setError(err instanceof Error ? err.message : "Failed to sign up");
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -68,18 +73,30 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
         <CardHeader>
           <CardTitle className="text-2xl">Sign Up</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Enter your details below to create your account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2">
+                <Label htmlFor="full-name">Full name</Label>
+                <Input
+                  id="full-name"
+                  type="text"
+                  placeholder="Your name"
+                  autoComplete="name"
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="m@example.com"
+                  autoComplete="email"
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
@@ -91,12 +108,17 @@ export function SignUpForm({ className, ...props }: SignUpFormProps) {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="new-password"
+                  minLength={MIN_PASSWORD_LENGTH}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  At least {MIN_PASSWORD_LENGTH} characters
+                </p>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="role">Login as</Label>
+                <Label htmlFor="role">Sign up as</Label>
                 <select
                   id="role"
                   value={type}

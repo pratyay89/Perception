@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SignUpForm } from "./signup-form";
 
 export default function Page() {
@@ -15,10 +16,10 @@ export default function Page() {
       {/* Content */}
       <div className="relative flex min-h-svh w-full flex-col items-center p-6 md:p-10">
         <div className="mb-16">
-          <a href="/" className="flex items-center gap-3 font-medium">
-            <img src="logo.jpg" alt="Logo" className="h-10 w-10 rounded-lg" />
+          <Link href="/" className="flex items-center gap-3 font-medium">
+            <img src="/logo.jpg" alt="Logo" className="h-10 w-10 rounded-lg" />
             <p className="text-3xl font-bold text-white">Perception</p>{" "}
-          </a>
+          </Link>
         </div>
         <div className="w-full max-w-md">
           <SignUpForm />

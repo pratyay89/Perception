@@ -1,8 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "@/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { getSession } from "@/lib/auth";
 import { useLoading } from "@/components/providers/loading-provider";
 
 export default function Home() {
@@ -11,14 +10,9 @@ export default function Home() {
 
   useEffect(() => {
     setIsLoading(true);
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      const route = user?.email ? "/dashboard" : "/login";
-      setIsLoading(false);
-      router.push(route);
-    });
+    router.replace(getSession() ? "/dashboard" : "/login");
 
     return () => {
-      unsubscribe();
       setIsLoading(false);
     };
   }, [router, setIsLoading]);

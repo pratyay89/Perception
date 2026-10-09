@@ -32,7 +32,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
-import { api } from "@/axios";
+import { api, errorMessage } from "@/lib/api";
+import { formatDateTime, formatMarks, STATUS_LABEL } from "@/lib/format";
+import type { PaperEvaluation, PaperSummary } from "@/lib/types";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
@@ -49,31 +51,39 @@ import {
   RefreshCcw,
   ArrowRight,
   Delete,
+  FileEdit,
+  Send,
 } from "lucide-react";
 
 interface QPCardProps {
-  id: string;
-  title: string;
-  expired: boolean;
-  evaluated: boolean;
+  paper: PaperSummary;
   user_type: "student" | "teacher";
-  attempted?: boolean;
+  /** Called after an action changed the paper, so the list can be reloaded. */
+  onChanged?: () => void;
 }
 
-export function QPCard({
-  id,
-  title,
-  expired,
-  evaluated,
-  user_type,
-  attempted = false,
-}: QPCardProps) {
+/** True when every submission of the paper has been evaluated. */
+export function isFullyEvaluated(paper: PaperSummary): boolean {
+  const submissions = paper.submission_count ?? 0;
+  return submissions > 0 && paper.evaluated_count === submissions;
+}
+
+export function QPCard({ paper, user_type, onChanged }: QPCardProps) {
   const router = useRouter();
+  const id = paper.qpid;
+  const { title, status } = paper;
+  const expired = status === "closed";
+  const attempted = Boolean(paper.attempted);
+  const submissionCount = paper.submission_count ?? 0;
+  const evaluated =
+    user_type === "teacher" ? isFullyEvaluated(paper) : Boolean(paper.evaluated);
+
   const [viewLoading, setViewLoading] = useState(false);
   const [evaluateLoading, setEvaluateLoading] = useState(false);
   const [expireLoading, setExpireLoading] = useState(false);
   const [unexpireLoading, setUnexpireLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [publishLoading, setPublishLoading] = useState(false);
 
   // Dialog states
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -81,16 +91,29 @@ export function QPCard({
   const [showUnexpireDialog, setShowUnexpireDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Evaluate the paper (only for teachers)
+  // Evaluate every submission of the paper (only for teachers)
   const handleEvaluateClick = async () => {
     setEvaluateLoading(true);
+    const toastId = toast.loading(
+      "Evaluating submissions with AI. This can take a minute..."
+    );
     try {
-      await api.put(`/evaluate/${id}`);
-      router.refresh();
-      toast.success("Evaluation successful");
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Evaluation failed";
-      toast.error(errorMessage);
+      const { data } = await api.post<PaperEvaluation>(`/evaluations/${id}`);
+      if (data.message) {
+        // Some answers failed or are still pending (e.g. rate limit reached)
+        toast.warning(
+          `${data.evaluated_count} of ${data.submission_count} submissions evaluated. ${data.message}`,
+          { id: toastId, duration: 10000 }
+        );
+      } else {
+        toast.success(
+          `Evaluation successful: ${data.evaluated_count} of ${data.submission_count} submissions evaluated`,
+          { id: toastId }
+        );
+      }
+      onChanged?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Evaluation failed"), { id: toastId });
     } finally {
       setEvaluateLoading(false);
     }
@@ -100,68 +123,113 @@ export function QPCard({
   const handleViewClick = () => {
     setViewLoading(true);
     router.push(`/view-paper/${id}`);
-    setViewLoading(false);
   };
 
   // Reset the evaluation (only for teachers)
   const handleResetClick = async () => {
     setResetLoading(true);
     try {
-      await api.put(`/reset/${id}`);
-      router.refresh();
+      await api.delete(`/evaluations/${id}`);
       toast.success("Evaluation reset successfully");
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Reset failed";
-      toast.error(errorMessage);
+      onChanged?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Reset failed"));
     } finally {
       setResetLoading(false);
       setShowResetDialog(false);
     }
   };
 
-  // Expire the paper (only for teachers)
+  // Stop accepting submissions (only for teachers)
   const handleExpireClick = async () => {
     setExpireLoading(true);
     try {
-      await api.put(`/paper/expire/${id}`);
-      router.refresh();
+      await api.patch(`/papers/${id}`, { is_closed: true });
       toast.success("Paper set as expired!");
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Expire failed";
-      toast.error(errorMessage);
+      onChanged?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Expire failed"));
     } finally {
       setExpireLoading(false);
       setShowExpireDialog(false);
     }
   };
 
-  // Unexpire the paper (only for teachers)
+  // Accept submissions again (only for teachers)
   const handleUnexpireClick = async () => {
     setUnexpireLoading(true);
     try {
-      await api.put(`/paper/unexpire/${id}`);
-      router.refresh();
+      await api.patch(`/papers/${id}`, { is_closed: false });
       toast.success("Paper set as active!");
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Unexpire failed";
-      toast.error(errorMessage);
+      onChanged?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Unexpire failed"));
     } finally {
       setUnexpireLoading(false);
       setShowUnexpireDialog(false);
     }
   };
 
+  // Publish a draft (only for teachers)
+  const handlePublishClick = async () => {
+    setPublishLoading(true);
+    try {
+      await api.patch(`/papers/${id}`, { is_published: true });
+      toast.success("Paper published!");
+      onChanged?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Publish failed"));
+    } finally {
+      setPublishLoading(false);
+    }
+  };
+
   // Delete the paper (only for teachers)
   const handleDeleteClick = async () => {
     try {
-      await api.delete(`/paper/${id}`);
-      router.refresh();
+      await api.delete(`/papers/${id}`);
       toast.success("Paper deleted successfully");
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || "Delete failed";
-      toast.error(errorMessage);
+      onChanged?.();
+    } catch (error) {
+      toast.error(errorMessage(error, "Delete failed"));
     }
   };
+
+  const statusBadge = (() => {
+    switch (status) {
+      case "closed":
+        return (
+          <Badge variant="destructive" className="flex items-center gap-1">
+            <XCircle className="h-3 w-3" />
+            <span>Expired</span>
+          </Badge>
+        );
+      case "draft":
+        return (
+          <Badge variant="outline" className="flex items-center gap-1">
+            <FileEdit className="h-3 w-3" />
+            <span>{STATUS_LABEL.draft}</span>
+          </Badge>
+        );
+      case "scheduled":
+        return (
+          <Badge
+            variant="outline"
+            className="flex items-center gap-1 bg-amber-50 text-amber-700"
+          >
+            <Calendar className="h-3 w-3" />
+            <span>{STATUS_LABEL.scheduled}</span>
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            <span>{STATUS_LABEL.open}</span>
+          </Badge>
+        );
+    }
+  })();
 
   return (
     <>
@@ -177,22 +245,7 @@ export function QPCard({
         >
           {/* Top-right status indicators */}
           <div className="absolute top-2 right-2 flex gap-1.5">
-            <Badge
-              variant={expired ? "destructive" : "secondary"}
-              className="flex items-center gap-1 transition-all"
-            >
-              {expired ? (
-                <>
-                  <XCircle className="h-3 w-3" />
-                  <span>Expired</span>
-                </>
-              ) : (
-                <>
-                  <Clock className="h-3 w-3" />
-                  <span>Active</span>
-                </>
-              )}
-            </Badge>
+            {statusBadge}
 
             {evaluated && (
               <Badge
@@ -216,7 +269,7 @@ export function QPCard({
             )}
           </div>
 
-          <CardHeader className="pt-8">
+          <CardHeader className="pt-10">
             <div className="flex items-start gap-3">
               <div className="rounded-md bg-primary/10 p-2 mt-0.5">
                 <BookOpen className="h-5 w-5 text-primary" />
@@ -231,16 +284,46 @@ export function QPCard({
                 <CardDescription>
                   {user_type === "teacher"
                     ? "Created by you"
+                    : paper.teacher_name
+                    ? `Assigned by ${paper.teacher_name}`
                     : "Assigned to you"}
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent>{/* additional details here */}</CardContent>
+          <CardContent className="text-sm text-gray-600 space-y-1">
+            <p>
+              {paper.question_count} question
+              {paper.question_count === 1 ? "" : "s"} ·{" "}
+              {formatMarks(paper.total_marks)} marks
+              {paper.duration_minutes
+                ? ` · ${paper.duration_minutes} min`
+                : ""}
+            </p>
+            {status === "scheduled" && (
+              <p>Opens {formatDateTime(paper.start_date)}</p>
+            )}
+            {user_type === "teacher" && status !== "draft" && (
+              <p>
+                {submissionCount} submission{submissionCount === 1 ? "" : "s"}
+                {submissionCount > 0
+                  ? ` · ${paper.evaluated_count ?? 0} evaluated`
+                  : ""}
+              </p>
+            )}
+            {user_type === "student" &&
+              evaluated &&
+              paper.marks_obtained !== null && (
+                <p className="font-medium text-gray-900">
+                  Score: {formatMarks(paper.marks_obtained)} /{" "}
+                  {formatMarks(paper.total_marks)}
+                </p>
+              )}
+          </CardContent>
 
           <CardFooter className="flex justify-between items-center border-t bg-gray-50/60 p-3">
-            {user_type === "student" && !expired && !attempted && (
+            {user_type === "student" && status === "open" && !attempted && (
               <Button
                 onClick={() => router.push(`/attempt-paper/${id}`)}
                 className="flex items-center gap-2"
@@ -249,13 +332,17 @@ export function QPCard({
                 Attempt
               </Button>
             )}
-            {user_type === "student" && expired && !attempted && (
+            {user_type === "student" && status !== "open" && !attempted && (
               <Button
                 disabled
                 className="flex items-center gap-2"
-                title="Paper is expired"
+                title={
+                  status === "scheduled"
+                    ? "Paper has not started yet"
+                    : "Paper is expired"
+                }
               >
-                Not Attempted
+                {status === "scheduled" ? "Not Started" : "Not Attempted"}
               </Button>
             )}
             {user_type === "student" && attempted && (
@@ -295,17 +382,26 @@ export function QPCard({
                     variant="ghost"
                     size="icon"
                     className="rounded-full h-8 w-8"
+                    aria-label={`Actions for ${title}`}
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end" className="w-52">
-                  {evaluated ? (
+                  {status === "draft" ? (
+                    <DropdownMenuItem
+                      onClick={handlePublishClick}
+                      disabled={publishLoading}
+                      className="flex items-center gap-2 text-emerald-600 focus:text-emerald-700 cursor-pointer"
+                    >
+                      <Send className="h-4 w-4" />
+                      <span>Publish</span>
+                    </DropdownMenuItem>
+                  ) : evaluated ? (
                     <DropdownMenuItem
                       onClick={() => setShowResetDialog(true)}
                       className="flex items-center gap-2 text-red-600 focus:text-red-700 cursor-pointer"
-                      disabled={!evaluated}
                     >
                       <AlertTriangle className="h-4 w-4" />
                       <span>Reset Evaluation</span>
@@ -313,7 +409,7 @@ export function QPCard({
                   ) : (
                     <DropdownMenuItem
                       onClick={handleEvaluateClick}
-                      disabled={evaluateLoading || evaluated}
+                      disabled={evaluateLoading || submissionCount === 0}
                       className="flex items-center gap-2 text-emerald-600 focus:text-emerald-700 cursor-pointer"
                     >
                       {evaluateLoading ? (
@@ -324,7 +420,11 @@ export function QPCard({
                       ) : (
                         <>
                           <CheckCircle className="h-4 w-4" />
-                          <span>Evaluate Papers</span>
+                          <span>
+                            {submissionCount === 0
+                              ? "No Submissions Yet"
+                              : "Evaluate Papers"}
+                          </span>
                         </>
                       )}
                     </DropdownMenuItem>
@@ -332,23 +432,32 @@ export function QPCard({
 
                   <DropdownMenuSeparator />
 
-                  {!expired ? (
-                    <DropdownMenuItem
-                      onClick={() => setShowExpireDialog(true)}
-                      className="flex items-center gap-2 text-amber-600 focus:text-amber-700 cursor-pointer"
-                    >
-                      <Calendar className="h-4 w-4" />
-                      <span>Mark as Expired</span>
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem
-                      onClick={() => setShowUnexpireDialog(true)}
-                      className="flex items-center gap-2 text-green-600 focus:text-green-700 cursor-pointer"
-                    >
-                      <RefreshCcw className="h-4 w-4" />
-                      <span>Reactivate Paper</span>
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/edit-paper/${id}`)}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <FileEdit className="h-4 w-4" />
+                    <span>Edit</span>
+                  </DropdownMenuItem>
+
+                  {status !== "draft" &&
+                    (!expired ? (
+                      <DropdownMenuItem
+                        onClick={() => setShowExpireDialog(true)}
+                        className="flex items-center gap-2 text-amber-600 focus:text-amber-700 cursor-pointer"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        <span>Mark as Expired</span>
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={() => setShowUnexpireDialog(true)}
+                        className="flex items-center gap-2 text-green-600 focus:text-green-700 cursor-pointer"
+                      >
+                        <RefreshCcw className="h-4 w-4" />
+                        <span>Reactivate Paper</span>
+                      </DropdownMenuItem>
+                    ))}
 
                   <DropdownMenuItem
                     onClick={() => setShowDeleteDialog(true)}
@@ -370,8 +479,8 @@ export function QPCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Reset Evaluation?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will reset all evaluation data for this paper. This action
-              cannot be undone.
+              This will remove all marks and feedback for this paper. The
+              students&apos; answers are kept. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -443,7 +552,8 @@ export function QPCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Reactivate Paper?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will reopen the paper, allowing students to attempt it again.
+              This will reopen the paper, allowing students who have not
+              answered yet to attempt it.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -477,8 +587,8 @@ export function QPCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Paper?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the paper and all associated data.
-              This action cannot be undone.
+              This will permanently delete the paper and all associated data,
+              including every student submission. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

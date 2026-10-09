@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { api } from "@/axios";
-import { auth } from "@/firebase";
+import { api, errorMessage } from "@/lib/api";
+import { useSession } from "@/lib/auth";
+import { formatMarks } from "@/lib/format";
+import type { PaperDetail, SubmissionSummary } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -11,12 +13,10 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
-  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
@@ -34,127 +34,211 @@ import { Loading } from "@/components/loading";
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   CheckCircle,
   Clock,
   FileQuestion,
   Save,
   PenLine,
   AlertTriangle,
-  CornerDownLeft,
   Bookmark,
   BookmarkCheck,
   HelpCircle,
 } from "lucide-react";
 
+// The server rejects longer answers
+const MAX_ANSWER_LENGTH = 20000;
+
 interface Question {
+  // Position in the paper (1, 2, 3, ...), used as the key in the UI
   order: number;
+  // The question's id on the server
+  qid: number;
   question: string;
+  marks: string;
 }
 
 interface Paper {
   title: string;
+  durationMinutes: number | null;
   questions: Question[];
 }
 
-interface SingleAnswer {
-  order: number;
-  answer: string;
+// What is kept in the browser while the student is writing. Answers are only
+// sent to the server when the paper is submitted.
+interface Draft {
+  startedAt: number;
+  answers: { [qid: number]: string };
+}
+
+function readDraft(key: string): Draft | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as Draft;
+    if (typeof draft.startedAt !== "number" || !draft.answers) return null;
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function formatRemaining(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
 }
 
 export default function AttemptPage() {
   const params = useParams();
   const router = useRouter();
+  const { session } = useSession({ role: "student" });
+  const email = session?.email ?? null;
+  const paperId = typeof params.id === "string" ? params.id : "";
+  const draftKey = email ? `perception:draft:${email}:${paperId}` : null;
+
   const [paper, setPaper] = useState<Paper | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState<{ [key: number]: string }>({});
-  const [email, setEmail] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [savedStatus, setSavedStatus] = useState<{ [key: number]: boolean }>(
     {}
   );
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const submittedRef = useRef(false);
 
-  // Auto-save timer
-  useEffect(() => {
-    const autoSaveInterval = setInterval(async () => {
-      const unsavedQuestions = Object.entries(answers).filter(
-        ([order, answer]) =>
-          answer.trim().length > 0 && !savedStatus[Number(order)]
-      );
-
-      if (unsavedQuestions.length > 0 && email && paper) {
-        try {
-          // Format all answers for submission (both saved and unsaved)
-          const formattedAnswers: SingleAnswer[] = paper.questions.map((q) => ({
-            order: q.order,
-            answer: answers[q.order] || "",
-          }));
-
-          const payload = {
-            paper_id: params.id,
-            student_email: email,
-            answer: formattedAnswers,
-          };
-
-          // Call the backend API
-          await api.post("/paper/attempt", payload);
-
-          // Mark all as saved
-          const newSavedStatus = { ...savedStatus };
-          unsavedQuestions.forEach(([order]) => {
-            newSavedStatus[Number(order)] = true;
-          });
-          setSavedStatus(newSavedStatus);
-
-          toast.success("Answers auto-saved", { duration: 2000 });
-        } catch (error) {
-          console.error("Auto-save failed:", error);
-          toast.error("Auto-save failed. Your progress might not be saved.", {
-            duration: 4000,
-          });
-        }
+  // Write the current answers to this browser's storage
+  const saveDraft = useCallback(
+    (currentAnswers: { [order: number]: string }): boolean => {
+      if (!draftKey || !paper || startedAt === null || submittedRef.current) {
+        return false;
       }
-    }, 60000); // Auto-save every minute
-
-    return () => clearInterval(autoSaveInterval);
-  }, [answers, savedStatus, email, paper, params.id]);
-
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (!user) {
-        router.push("/login");
-      } else {
-        setEmail(user.email);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
-  useEffect(() => {
-    const fetchPaper = async () => {
-      if (!email) return;
-
+      const byQid: { [qid: number]: string } = {};
+      paper.questions.forEach((q) => {
+        if (currentAnswers[q.order]) byQid[q.qid] = currentAnswers[q.order];
+      });
       try {
-        const response = await api.get(`/paper/attempt/${params.id}`, {
-          params: { student_email: email },
+        const draft: Draft = { startedAt, answers: byQid };
+        window.localStorage.setItem(draftKey, JSON.stringify(draft));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [draftKey, paper, startedAt]
+  );
+
+  // Auto-save shortly after the student stops typing
+  useEffect(() => {
+    // Cleared answers count too, so an old draft cannot come back later
+    const hasUnsaved = Object.keys(answers).some(
+      (order) => savedStatus[Number(order)] === false
+    );
+    if (!hasUnsaved) return;
+
+    const timer = setTimeout(() => {
+      if (saveDraft(answers)) {
+        const allSaved: { [key: number]: boolean } = {};
+        Object.keys(answers).forEach((order) => {
+          allSaved[Number(order)] = true;
         });
-        setPaper(response.data);
-      } catch (error: any) {
-        router.push("/dashboard");
-        toast.error("Failed to load paper");
+        setSavedStatus(allSaved);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [answers, savedStatus, saveDraft]);
+
+  // Load the paper, and any draft left in this browser
+  useEffect(() => {
+    if (!email || !draftKey) return;
+    let mounted = true;
+
+    const fetchPaper = async () => {
+      try {
+        // A paper can be answered only once
+        const existing = await api.get<SubmissionSummary[]>(
+          `/submissions/${paperId}`
+        );
+        if (existing.data.length > 0) {
+          toast.info("You have already submitted this paper");
+          router.replace(`/view-paper/${paperId}`);
+          return;
+        }
+
+        const { data } = await api.get<PaperDetail>(`/papers/${paperId}`);
+        if (!mounted) return;
+
+        if (data.status !== "open") {
+          toast.error("This paper is not accepting submissions");
+          router.replace("/dashboard");
+          return;
+        }
+
+        const questions: Question[] = data.questions.map((q, index) => ({
+          order: index + 1,
+          qid: q.qid,
+          question: q.question_text,
+          marks: q.marks_assigned,
+        }));
+
+        const draft = readDraft(draftKey);
+        if (draft) {
+          const restored: { [order: number]: string } = {};
+          const saved: { [order: number]: boolean } = {};
+          questions.forEach((q) => {
+            if (draft.answers[q.qid]) {
+              restored[q.order] = draft.answers[q.qid];
+              saved[q.order] = true;
+            }
+          });
+          setAnswers(restored);
+          setSavedStatus(saved);
+          if (Object.keys(restored).length > 0) {
+            toast.info("Restored the answers you wrote earlier on this device");
+          }
+        }
+        setStartedAt(draft?.startedAt ?? Date.now());
+        setPaper({
+          title: data.title,
+          durationMinutes: data.duration_minutes,
+          questions,
+        });
+      } catch (error) {
+        toast.error(errorMessage(error, "Failed to load paper"));
+        router.replace("/dashboard");
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    if (email) {
-      fetchPaper();
-    }
-  }, [params.id, email]);
+    fetchPaper();
+
+    return () => {
+      mounted = false;
+    };
+  }, [paperId, email, draftKey, router]);
+
+  // Remember when the attempt started, so the timer survives a page reload
+  useEffect(() => {
+    if (!draftKey || !paper || startedAt === null) return;
+    if (!readDraft(draftKey)) saveDraft({});
+  }, [draftKey, paper, startedAt, saveDraft]);
+
+  // Tick once a second while there is a time limit
+  useEffect(() => {
+    if (!paper?.durationMinutes) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [paper?.durationMinutes]);
 
   // Focus textarea when changing questions
   useEffect(() => {
@@ -170,52 +254,23 @@ export default function AttemptPage() {
     setSavedStatus((prev) => ({ ...prev, [order]: false }));
   };
 
-  const handleSaveAnswer = async (order: number) => {
+  const handleSaveAnswer = (order: number) => {
     if (!answers[order] || answers[order].trim() === "") {
       toast.info("Nothing to save");
       return;
     }
 
-    try {
-      const formattedAnswers: SingleAnswer[] = paper.questions.map((q) => ({
-        order: q.order,
-        answer: answers[q.order] || "",
-      }));
-
-      const payload = {
-        paper_id: params.id,
-        student_email: email,
-        answer: formattedAnswers,
-      };
-
-      // Call the API
-      await api.post("/paper/attempt", payload);
-
-      // Mark this answer as saved
+    if (saveDraft(answers)) {
       setSavedStatus((prev) => ({ ...prev, [order]: true }));
-      toast.success("Answer saved!");
-    } catch (error) {
-      console.error("Save failed:", error);
-      toast.error("Failed to save answer. Please try again.");
+      toast.success("Answer saved on this device");
+    } else {
+      toast.error("Could not save. Is browser storage disabled or full?");
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!email || !paper) return;
-
-    // Check if there are any unanswered questions
-    const unansweredQuestions = paper.questions.filter(
-      (q) => !answers[q.order] || answers[q.order].trim() === ""
-    );
-
-    if (unansweredQuestions.length > 0) {
-      const isPlural = unansweredQuestions.length > 1;
-      toast.warning(
-        `You have ${unansweredQuestions.length} unanswered question(s). Please check before submitting.`
-      );
-      return;
-    }
-
+    // The dialog warns about unanswered questions before the final submit
     setShowSubmitDialog(true);
   };
 
@@ -224,23 +279,20 @@ export default function AttemptPage() {
 
     setSubmitting(true);
     try {
-      const formattedAnswers: SingleAnswer[] = paper.questions.map((q) => ({
-        order: q.order,
-        answer: answers[q.order] || "",
-      }));
+      await api.post(`/submissions/${paperId}`, {
+        answers: paper.questions.map((q) => ({
+          qid: q.qid,
+          student_answer: answers[q.order] || "",
+        })),
+      });
 
-      const payload = {
-        paper_id: params.id,
-        student_email: email,
-        answer: formattedAnswers,
-      };
-
-      await api.post("/paper/attempt", payload);
+      submittedRef.current = true;
+      if (draftKey) window.localStorage.removeItem(draftKey);
 
       toast.success("Paper submitted successfully!");
       router.push("/dashboard");
-    } catch (error: any) {
-      toast.error("Failed to submit paper");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to submit paper"));
       setShowSubmitDialog(false);
     } finally {
       setSubmitting(false);
@@ -262,7 +314,7 @@ export default function AttemptPage() {
 
   // Calculate progress
   const getProgress = () => {
-    if (!paper) return 0;
+    if (!paper || paper.questions.length === 0) return 0;
     const answeredQuestions = paper.questions.filter(
       (q) => answers[q.order] && answers[q.order].trim() !== ""
     ).length;
@@ -271,6 +323,12 @@ export default function AttemptPage() {
 
   if (loading || !paper) return <Loading />;
   const currentQ = paper.questions[currentQuestion];
+
+  const remainingMs =
+    paper.durationMinutes && startedAt !== null
+      ? startedAt + paper.durationMinutes * 60_000 - now
+      : null;
+  const timeIsUp = remainingMs !== null && remainingMs <= 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 pb-8">
@@ -295,10 +353,18 @@ export default function AttemptPage() {
             <div className="flex items-center gap-3">
               <Badge
                 variant="outline"
-                className="bg-blue-50 text-blue-700 border-blue-200"
+                className={
+                  timeIsUp
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                }
               >
                 <Clock className="h-3.5 w-3.5 mr-1" />
-                In Progress
+                {remainingMs === null
+                  ? "In Progress"
+                  : timeIsUp
+                  ? "Time is up"
+                  : `${formatRemaining(remainingMs)} left`}
               </Badge>
               <Button
                 size="sm"
@@ -315,6 +381,15 @@ export default function AttemptPage() {
 
       {/* Progress Bar */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        {timeIsUp && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-800 flex items-start">
+            <AlertTriangle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+            <span className="text-sm">
+              The time limit of {paper.durationMinutes} minutes is over. Please
+              submit your paper now.
+            </span>
+          </div>
+        )}
         <div className="bg-white rounded-md border shadow-sm p-4 mb-6">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-medium text-gray-700">
@@ -409,7 +484,8 @@ export default function AttemptPage() {
                   <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
                     <div className="flex justify-between">
                       <Badge variant="outline" className="mb-1 bg-white">
-                        Question {currentQ.order} of {paper.questions.length}
+                        Question {currentQ.order} of {paper.questions.length} ·{" "}
+                        {formatMarks(currentQ.marks)} marks
                       </Badge>
                       {savedStatus[currentQ.order] && (
                         <Badge
@@ -443,6 +519,7 @@ export default function AttemptPage() {
                         ref={textareaRef}
                         placeholder="Type your answer here..."
                         className="min-h-[250px] resize-y"
+                        maxLength={MAX_ANSWER_LENGTH}
                         value={answers[currentQ.order] || ""}
                         onChange={(e) =>
                           handleAnswerChange(currentQ.order, e.target.value)
@@ -515,8 +592,9 @@ export default function AttemptPage() {
                   <h3 className="font-medium text-blue-800 mb-1">Tips</h3>
                   <ul className="text-sm text-blue-700 space-y-1">
                     <li>
-                      Your answers are automatically saved, but you can also
-                      manually save each answer
+                      Your answers are saved automatically in this browser
+                      while you type, so a page reload does not lose them. They
+                      reach your teacher only when you submit
                     </li>
                     <li>
                       Navigate between questions using the sidebar or
@@ -542,13 +620,13 @@ export default function AttemptPage() {
               {paper.questions.some(
                 (q) => !answers[q.order] || answers[q.order].trim() === ""
               ) && (
-                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md text-amber-800 flex items-start">
+                <span className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md text-amber-800 flex items-start">
                   <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
                   <span>
-                    You have unanswered questions. Are you sure you want to
-                    proceed?
+                    You have unanswered questions. They will get 0 marks. Are
+                    you sure you want to proceed?
                   </span>
-                </div>
+                </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>

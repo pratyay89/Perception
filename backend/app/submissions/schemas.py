@@ -5,15 +5,20 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from app.core.model import EvaluationStatus
+from app.core.validation import BodyDbId, CleanModel
+
+# Long enough for an essay, short enough to keep one LLM call affordable.
+MAX_ANSWER_LENGTH = 20_000
 
 
-class AnswerCreate(BaseModel):
-    qid: int
-    student_answer: str
+class AnswerCreate(CleanModel):
+    qid: BodyDbId
+    student_answer: str = Field(max_length=MAX_ANSWER_LENGTH)
 
 
-class SubmissionCreate(BaseModel):
-    answers: List[AnswerCreate] = Field(default_factory=list)
+class SubmissionCreate(CleanModel):
+    # Questions that are left out are stored as blank answers.
+    answers: List[AnswerCreate] = Field(default_factory=list, max_length=100)
 
 
 # Central Base Models
@@ -48,7 +53,7 @@ class AnswerTeacherOut(AnswerBase):
 
 
 class SubmissionTeacherOut(SubmissionBase):
-    pass
+    student_name: Optional[str] = None
 
 
 class SubmissionDetailTeacherOut(SubmissionTeacherOut):

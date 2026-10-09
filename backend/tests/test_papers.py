@@ -80,14 +80,14 @@ async def student_auth_headers(student_credentials):
 
 def get_paper_payload():
     return {
-        "title": "Test Paper",
+        "title": "Operating Systems Test",
         "start_date": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
         "duration_minutes": 120,
         "is_published": False,
         "questions": [
             {
-                "question_text": "What is 2 + 2?",
-                "model_answer": "4",
+                "question_text": "Which CPU scheduling algorithm can cause starvation of long processes?",
+                "model_answer": "Shortest Job First (SJF)",
                 "rubric": "1 mark for correct answer",
                 "marks_assigned": 1.0,
                 "sort_order": 1,

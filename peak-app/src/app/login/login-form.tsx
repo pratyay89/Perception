@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword } from "firebase/auth";
 import { toast } from "sonner";
 
 // Components
@@ -20,7 +19,9 @@ import { Label } from "@/components/ui/label";
 
 // Utils
 import { cn } from "@/lib/utils";
-import { auth } from "@/firebase";
+import { api, errorMessage } from "@/lib/api";
+import { saveSession } from "@/lib/auth";
+import type { LoginResponse } from "@/lib/types";
 
 interface LoginFormProps extends React.ComponentPropsWithoutRef<"div"> {
   className?: string;
@@ -41,19 +42,23 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       setError("");
       setLoading(true);
 
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      // The backend uses the OAuth2 password flow: a form-encoded body
+      // with the email in the "username" field.
+      const body = new URLSearchParams();
+      body.set("username", email.trim());
+      body.set("password", password);
 
-      if (userCredential.user) {
-        toast.success("Logged in successfully");
-        router.push("/dashboard");
-      }
+      const { data } = await api.post<LoginResponse>("/auth/login", body, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+
+      saveSession(data);
+      toast.success("Logged in successfully");
+      router.push("/dashboard");
     } catch (err) {
+      const message = errorMessage(err, "Failed to login");
       toast.error("Login failed");
-      setError(err instanceof Error ? err.message : "Failed to login");
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -77,6 +82,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
                   id="email"
                   type="email"
                   placeholder="m@example.com"
+                  autoComplete="email"
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
@@ -88,6 +94,7 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="current-password"
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
