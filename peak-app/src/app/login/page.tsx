@@ -1,3 +1,4 @@
+import { GraphSearchCanvas } from "@/components/graph-search-canvas";
 import { LoginForm } from "./login-form";
 
 export default function LoginPage() {
@@ -18,18 +19,22 @@ export default function LoginPage() {
             <LoginForm />
           </div>
         </div>
-        <img
-          src="https://groq.com/wp-content/uploads/2024/03/PBG-mark1-color.svg"
-          alt="Powered by Groq for fast inference."
-          className="h-24 w-24"
-        />
+        <p className="text-xs text-muted-foreground">
+          Powered by <span className="font-semibold">Groq</span> for fast
+          inference
+        </p>
       </div>
-      <div className="relative hidden bg-muted lg:block">
-        <img
-          src="/login-side.jpg"
-          alt="Image"
-          className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-        />
+      <div className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 lg:block">
+        <GraphSearchCanvas className="absolute inset-0" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 p-10">
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-sky-300/80">
+            Every answer, evaluated
+          </p>
+          <p className="mt-3 max-w-md text-3xl font-semibold leading-tight text-white">
+            Finding the shortest path from a question to fair, consistent
+            feedback.
+          </p>
+        </div>
       </div>
     </div>
   );

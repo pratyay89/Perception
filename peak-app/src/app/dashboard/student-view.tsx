@@ -49,6 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { GraphSearchCanvas } from "@/components/graph-search-canvas";
 
 type Paper = PaperSummary;
 
@@ -116,7 +117,10 @@ export function StudentDashboard({ email }: StudentViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="relative isolate min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+      <div className="fixed inset-0 -z-10">
+        <GraphSearchCanvas variant="subtle" />
+      </div>
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

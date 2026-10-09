@@ -1,16 +1,13 @@
 import Link from "next/link";
+import { GraphSearchCanvas } from "@/components/graph-search-canvas";
 import { SignUpForm } from "./signup-form";
 
 export default function Page() {
   return (
-    <div className="relative min-h-svh">
-      {/* Background Image */}
-      <div className="absolute inset-0 -z-10">
-        <img
-          src="/signup-back.jpg"
-          alt="Background"
-          className="h-full w-full object-cover brightness-[0.7]"
-        />
+    <div className="relative isolate min-h-svh overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+      {/* Animated background */}
+      <div className="fixed inset-0 -z-10">
+        <GraphSearchCanvas />
       </div>
 
       {/* Content */}
@@ -24,11 +21,10 @@ export default function Page() {
         <div className="w-full max-w-md">
           <SignUpForm />
         </div>
-        <img
-          src="https://groq.com/wp-content/uploads/2024/03/PBG-mark1-color.svg"
-          alt="Powered by Groq for fast inference."
-          className="h-32 w-32"
-        />
+        <p className="text-xs mt-8 text-slate-300/80">
+          Powered by <span className="font-semibold">Groq</span> for fast
+          inference
+        </p>
       </div>
     </div>
   );
