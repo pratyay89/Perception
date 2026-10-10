@@ -331,9 +331,9 @@ export default function AttemptPage() {
   const timeIsUp = remainingMs !== null && remainingMs <= 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 pb-8">
+    <div className="min-h-screen bg-background pb-8">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+      <div className="bg-card border-b sticky top-0 z-10 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -346,7 +346,7 @@ export default function AttemptPage() {
                 <ArrowLeft className="h-4 w-4 mr-1" />
                 Back to Dashboard
               </Button>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                 {paper.title}
               </h1>
             </div>
@@ -390,12 +390,12 @@ export default function AttemptPage() {
             </span>
           </div>
         )}
-        <div className="bg-white rounded-md border shadow-sm p-4 mb-6">
+        <div className="bg-card rounded-md border shadow-sm p-4 mb-6">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-foreground">
               Your Progress
             </span>
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-foreground">
               {
                 paper.questions.filter(
                   (q) => answers[q.order] && answers[q.order].trim() !== ""
@@ -414,9 +414,9 @@ export default function AttemptPage() {
           {/* Question Navigator */}
           <div className="col-span-12 md:col-span-3">
             <Card className="sticky top-28">
-              <CardHeader className="py-3 px-4 bg-gray-50 border-b">
+              <CardHeader className="py-3 px-4 bg-muted/50 border-b">
                 <CardTitle className="text-sm flex items-center gap-1.5">
-                  <FileQuestion className="h-4 w-4 text-gray-500" />
+                  <FileQuestion className="h-4 w-4 text-muted-foreground" />
                   Questions
                 </CardTitle>
               </CardHeader>
@@ -456,7 +456,7 @@ export default function AttemptPage() {
                   })}
                 </div>
               </CardContent>
-              <CardFooter className="border-t bg-gray-50/80 p-3 flex justify-center">
+              <CardFooter className="border-t bg-muted/50 p-3 flex justify-center">
                 <Button
                   variant="outline"
                   size="sm"
@@ -481,9 +481,9 @@ export default function AttemptPage() {
                 transition={{ duration: 0.2 }}
               >
                 <Card className="shadow-sm">
-                  <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <CardHeader className="border-b bg-blue-50">
                     <div className="flex justify-between">
-                      <Badge variant="outline" className="mb-1 bg-white">
+                      <Badge variant="outline" className="mb-1 bg-card">
                         Question {currentQ.order} of {paper.questions.length} ·{" "}
                         {formatMarks(currentQ.marks)} marks
                       </Badge>
@@ -505,12 +505,12 @@ export default function AttemptPage() {
                       <div className="flex items-center justify-between">
                         <label
                           htmlFor="answer"
-                          className="text-sm font-medium text-gray-700 flex items-center gap-1.5"
+                          className="text-sm font-medium text-foreground flex items-center gap-1.5"
                         >
-                          <PenLine className="h-4 w-4 text-gray-500" />
+                          <PenLine className="h-4 w-4 text-muted-foreground" />
                           Your Answer
                         </label>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-muted-foreground">
                           Press Ctrl+Enter to save
                         </div>
                       </div>
@@ -532,7 +532,7 @@ export default function AttemptPage() {
                       />
                     </div>
                   </CardContent>
-                  <CardFooter className="border-t bg-gray-50 p-4 flex flex-wrap justify-between gap-4">
+                  <CardFooter className="border-t bg-muted/50 p-4 flex flex-wrap justify-between gap-4">
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -642,7 +642,7 @@ export default function AttemptPage() {
             >
               {submitting ? (
                 <>
-                  <div className="h-4 w-4 border-2 border-white border-opacity-50 border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="h-4 w-4 border-2 border-current border-t-transparent opacity-70 rounded-full animate-spin mr-2" />
                   Submitting...
                 </>
               ) : (

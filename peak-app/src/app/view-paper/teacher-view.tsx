@@ -57,6 +57,8 @@ import {
   RotateCcw,
   FileEdit,
 } from "lucide-react";
+import { PaperLeaderboardCard } from "@/components/leaderboard";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface ViewProps {
   id: string;
@@ -248,17 +250,20 @@ export function TeacherView({ id }: ViewProps) {
   return (
     <div className="space-y-6">
       {/* Paper Header */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div
-          className="flex items-center mb-4 text-primary hover:text-primary/90 transition-colors cursor-pointer"
-          onClick={() => router.push("/dashboard")}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          <span className="text-sm font-medium">Back to Dashboard</span>
+      <div className="bg-card rounded-lg shadow-sm border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div
+            className="flex items-center text-primary hover:text-primary/90 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            <span className="text-sm font-medium">Back to Dashboard</span>
+          </div>
+          <ThemeToggle />
         </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               {paper.title}
             </h1>
             <div className="flex flex-wrap gap-2 mt-2 items-center">
@@ -290,14 +295,14 @@ export function TeacherView({ id }: ViewProps) {
                   </>
                 )}
               </Badge>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-muted-foreground">
                 {submissions.length}{" "}
                 {submissions.length === 1 ? "submission" : "submissions"}
                 {hasSubmissions ? ` · ${evaluatedCount} evaluated` : ""} ·{" "}
                 {formatMarks(totalMarks)} marks
               </span>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               {paper.status === "scheduled" ? "Opens" : "Opened"}{" "}
               {formatDateTime(paper.start_date)}
               {paper.duration_minutes
@@ -319,15 +324,15 @@ export function TeacherView({ id }: ViewProps) {
       <div className="grid grid-cols-12 gap-6">
         {/* Questions Panel */}
         <Card className="col-span-12 lg:col-span-4 shadow-sm border">
-          <CardHeader className="border-b bg-gray-50/80">
+          <CardHeader className="border-b bg-muted/50">
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-gray-500" />
+              <FileText className="h-5 w-5 text-muted-foreground" />
               Questions ({paper.questions.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {paper.questions.length === 0 ? (
-              <p className="p-6 text-sm text-gray-500">
+              <p className="p-6 text-sm text-muted-foreground">
                 This paper has no questions yet.
               </p>
             ) : (
@@ -337,7 +342,7 @@ export function TeacherView({ id }: ViewProps) {
                     <TabsTrigger
                       key={q.qid}
                       value={index.toString()}
-                      className="data-[state=active]:bg-gray-100 rounded-none border-b-2 data-[state=active]:border-primary"
+                      className="data-[state=active]:bg-muted rounded-none border-b-2 data-[state=active]:border-primary"
                     >
                       Q{index + 1}
                     </TabsTrigger>
@@ -363,30 +368,30 @@ export function TeacherView({ id }: ViewProps) {
                               Question {index + 1} ·{" "}
                               {formatMarks(q.marks_assigned)} marks
                             </Badge>
-                            <p className="text-lg font-medium text-gray-800 whitespace-pre-wrap">
+                            <p className="text-lg font-medium text-foreground whitespace-pre-wrap">
                               {q.question_text}
                             </p>
                           </div>
                           <Separator />
                           <div>
-                            <h4 className="text-sm font-medium text-gray-500 mb-2">
+                            <h4 className="text-sm font-medium text-muted-foreground mb-2">
                               Expected Answer
                             </h4>
-                            <p className="text-sm bg-gray-50 p-3 rounded border whitespace-pre-wrap">
+                            <p className="text-sm bg-muted/50 p-3 rounded border whitespace-pre-wrap">
                               {q.model_answer || (
-                                <span className="text-gray-400 italic">
+                                <span className="text-muted-foreground/70 italic">
                                   None provided
                                 </span>
                               )}
                             </p>
                           </div>
                           <div>
-                            <h4 className="text-sm font-medium text-gray-500 mb-2">
+                            <h4 className="text-sm font-medium text-muted-foreground mb-2">
                               Rubric
                             </h4>
-                            <p className="text-sm bg-gray-50 p-3 rounded border whitespace-pre-wrap">
+                            <p className="text-sm bg-muted/50 p-3 rounded border whitespace-pre-wrap">
                               {q.rubric || (
-                                <span className="text-gray-400 italic">
+                                <span className="text-muted-foreground/70 italic">
                                   None provided. The AI grades on accuracy,
                                   completeness, relevance and clarity.
                                 </span>
@@ -405,10 +410,10 @@ export function TeacherView({ id }: ViewProps) {
 
         {/* Submissions Panel */}
         <Card className="col-span-12 lg:col-span-8 shadow-sm border">
-          <CardHeader className="border-b bg-gray-50/80">
+          <CardHeader className="border-b bg-muted/50">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
               <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-gray-500" />
+                <User className="h-5 w-5 text-muted-foreground" />
                 Student Submissions
               </CardTitle>
               {hasSubmissions ? (
@@ -426,11 +431,11 @@ export function TeacherView({ id }: ViewProps) {
                     {submissions.map((sub) => (
                       <SelectItem key={sub.s_email} value={sub.s_email}>
                         <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center text-xs">
+                          <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-xs">
                             {getInitials(sub.s_email)}
                           </div>
                           <span>{sub.student_name || sub.s_email}</span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-muted-foreground">
                             {sub.evaluated
                               ? `${formatMarks(
                                   sub.total_marks_obtained
@@ -450,11 +455,11 @@ export function TeacherView({ id }: ViewProps) {
             {hasSubmissions ? (
               selectedSubmission ? (
                 <div className="p-6">
-                  <div className="bg-gray-50 p-4 rounded-lg mb-6 border">
+                  <div className="bg-muted/50 p-4 rounded-lg mb-6 border">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">
+                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs">
                             {getInitials(selectedSubmission.s_email)}
                           </div>
                           <div>
@@ -462,7 +467,7 @@ export function TeacherView({ id }: ViewProps) {
                               {selectedSubmission.student_name ||
                                 selectedSubmission.s_email}
                             </h3>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               {selectedSubmission.s_email} · submitted{" "}
                               {formatDateTime(selectedSubmission.created_at)}
                             </p>
@@ -470,7 +475,7 @@ export function TeacherView({ id }: ViewProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <BarChart4 className="h-5 w-5 text-gray-400" />
+                        <BarChart4 className="h-5 w-5 text-muted-foreground/70" />
                         <span className="font-bold">
                           Score: {formatMarks(selectedTotal)} /{" "}
                           {formatMarks(totalMarks)}
@@ -524,7 +529,7 @@ export function TeacherView({ id }: ViewProps) {
                           </Button>
                         </>
                       )}
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         {selectedSubmission.evaluated
                           ? "Visible to the student. You can still adjust any mark."
                           : "The student sees marks once every answer is graded."}
@@ -551,7 +556,7 @@ export function TeacherView({ id }: ViewProps) {
                           transition={{ duration: 0.3 }}
                         >
                           <Card className="overflow-hidden">
-                            <CardHeader className="py-3 px-4 bg-gray-50/70 border-b">
+                            <CardHeader className="py-3 px-4 bg-muted/50 border-b">
                               <div className="flex items-center justify-between gap-2">
                                 <h3 className="text-sm font-medium">
                                   Question {questionNumber.get(ans.qid) ?? "?"}
@@ -599,11 +604,11 @@ export function TeacherView({ id }: ViewProps) {
                             </CardHeader>
                             <CardContent className="p-4">
                               <div className="space-y-4">
-                                <div className="bg-gray-50 p-3 rounded border text-sm whitespace-pre-wrap">
+                                <div className="bg-muted/50 p-3 rounded border text-sm whitespace-pre-wrap">
                                   {ans.student_answer?.trim() ? (
                                     ans.student_answer
                                   ) : (
-                                    <span className="text-gray-400 italic">
+                                    <span className="text-muted-foreground/70 italic">
                                       No answer provided
                                     </span>
                                   )}
@@ -631,9 +636,9 @@ export function TeacherView({ id }: ViewProps) {
                                             marks: e.target.value,
                                           })
                                         }
-                                        className="h-8 w-24 bg-white"
+                                        className="h-8 w-24 bg-card"
                                       />
-                                      <span className="text-sm text-gray-500">
+                                      <span className="text-sm text-muted-foreground">
                                         of {formatMarks(maxMarks)}
                                       </span>
                                     </div>
@@ -653,7 +658,7 @@ export function TeacherView({ id }: ViewProps) {
                                             feedback: e.target.value,
                                           })
                                         }
-                                        className="min-h-[80px] bg-white"
+                                        className="min-h-[80px] bg-card"
                                       />
                                     </div>
                                     <div className="flex gap-2 justify-end">
@@ -679,7 +684,7 @@ export function TeacherView({ id }: ViewProps) {
                                     <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2">
                                       <FileText className="h-4 w-4" /> Feedback
                                     </h4>
-                                    <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded border min-h-[60px] whitespace-pre-wrap">
+                                    <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border min-h-[60px] whitespace-pre-wrap">
                                       {ans.feedback ||
                                         (ans.status === "failed"
                                           ? "The AI could not grade this answer. Run the evaluation again, or grade it yourself."
@@ -697,11 +702,11 @@ export function TeacherView({ id }: ViewProps) {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-                  <User className="h-12 w-12 text-gray-300 mb-2" />
-                  <h3 className="text-lg font-medium text-gray-800 mb-1">
+                  <User className="h-12 w-12 text-muted-foreground/70 mb-2" />
+                  <h3 className="text-lg font-medium text-foreground mb-1">
                     {detailLoading ? "Loading submission..." : "No student selected"}
                   </h3>
-                  <p className="text-gray-500 max-w-md">
+                  <p className="text-muted-foreground max-w-md">
                     Please select a student from the dropdown above to view
                     their submission
                   </p>
@@ -709,11 +714,11 @@ export function TeacherView({ id }: ViewProps) {
               )
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-                <FileText className="h-12 w-12 text-gray-300 mb-2" />
-                <h3 className="text-lg font-medium text-gray-800 mb-1">
+                <FileText className="h-12 w-12 text-muted-foreground/70 mb-2" />
+                <h3 className="text-lg font-medium text-foreground mb-1">
                   No submissions yet
                 </h3>
-                <p className="text-gray-500 max-w-md">
+                <p className="text-muted-foreground max-w-md">
                   This assessment hasn&apos;t received any student submissions
                   yet
                 </p>
@@ -722,6 +727,8 @@ export function TeacherView({ id }: ViewProps) {
           </CardContent>
         </Card>
       </div>
+
+      <PaperLeaderboardCard qpid={id} />
     </div>
   );
 }

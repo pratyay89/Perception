@@ -189,26 +189,26 @@ export function PaperForm({ paperId }: PaperFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             {isEdit ? "Edit Assessment" : "Create New Assessment"}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Design your questions and provide model answers and rubrics
           </p>
         </div>
 
         {/* Main Content */}
         <Card className="shadow-lg border-0 overflow-hidden mb-8">
-          <CardHeader className="bg-white border-b border-gray-100 px-6 py-5">
+          <CardHeader className="bg-card border-b border-border px-6 py-5">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label
                   htmlFor="paper-title"
-                  className="text-sm font-medium text-gray-700"
+                  className="text-sm font-medium text-foreground"
                 >
                   Assessment Title
                 </Label>
@@ -226,7 +226,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
                 <div className="space-y-2">
                   <Label
                     htmlFor="paper-start"
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-foreground"
                   >
                     Opens for students at
                   </Label>
@@ -240,7 +240,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
                 <div className="space-y-2">
                   <Label
                     htmlFor="paper-duration"
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-foreground"
                   >
                     Time limit in minutes (optional)
                   </Label>
@@ -256,7 +256,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
                 </div>
               </div>
 
-              <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+              <label className="flex items-start gap-2 text-sm text-foreground cursor-pointer">
                 <input
                   type="checkbox"
                   className="mt-0.5 h-4 w-4"
@@ -265,7 +265,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
                 />
                 <span>
                   <span className="font-medium">Publish</span>
-                  <span className="block text-xs text-gray-500">
+                  <span className="block text-xs text-muted-foreground">
                     Published papers are visible to your students from the
                     opening time. Leave unticked to keep it as a draft.
                   </span>
@@ -274,10 +274,10 @@ export function PaperForm({ paperId }: PaperFormProps) {
             </div>
           </CardHeader>
 
-          <CardContent className="p-6 bg-white space-y-6">
+          <CardContent className="p-6 bg-card space-y-6">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-semibold text-gray-800">Questions</h2>
-              <div className="text-sm text-gray-500">
+              <h2 className="text-xl font-semibold text-foreground">Questions</h2>
+              <div className="text-sm text-muted-foreground">
                 {questions.length} question(s) · {formatMarks(totalMarks)} marks
               </div>
             </div>
@@ -292,13 +292,13 @@ export function PaperForm({ paperId }: PaperFormProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Card className="border border-gray-200 shadow-sm overflow-hidden">
-                    <CardHeader className="bg-gray-50 px-4 py-3 flex flex-row items-center justify-between">
+                  <Card className="border border-border shadow-sm overflow-hidden">
+                    <CardHeader className="bg-muted/50 px-4 py-3 flex flex-row items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
                           {index + 1}
                         </div>
-                        <h3 className="font-medium text-gray-800">
+                        <h3 className="font-medium text-foreground">
                           Question {index + 1}
                         </h3>
                       </div>
@@ -306,7 +306,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
                         <div className="flex items-center gap-2">
                           <Label
                             htmlFor={`marks-${q.key}`}
-                            className="text-sm text-gray-600"
+                            className="text-sm text-muted-foreground"
                           >
                             Marks
                           </Label>
@@ -323,7 +323,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
                                 e.target.value
                               )
                             }
-                            className="h-8 w-20 bg-white"
+                            className="h-8 w-20 bg-card"
                           />
                         </div>
                         {questions.length > 1 && (
@@ -343,10 +343,10 @@ export function PaperForm({ paperId }: PaperFormProps) {
                       <div className="space-y-2">
                         <Label
                           htmlFor={`question-${q.key}`}
-                          className="text-sm font-medium text-gray-700 flex items-center gap-1"
+                          className="text-sm font-medium text-foreground flex items-center gap-1"
                         >
                           Question{" "}
-                          <HelpCircle className="h-3 w-3 text-gray-400" />
+                          <HelpCircle className="h-3 w-3 text-muted-foreground/70" />
                         </Label>
                         <Textarea
                           id={`question-${q.key}`}
@@ -366,10 +366,10 @@ export function PaperForm({ paperId }: PaperFormProps) {
                       <div className="space-y-2">
                         <Label
                           htmlFor={`answer-${q.key}`}
-                          className="text-sm font-medium text-gray-700 flex items-center gap-1"
+                          className="text-sm font-medium text-foreground flex items-center gap-1"
                         >
                           Model Answer{" "}
-                          <HelpCircle className="h-3 w-3 text-gray-400" />
+                          <HelpCircle className="h-3 w-3 text-muted-foreground/70" />
                         </Label>
                         <Textarea
                           id={`answer-${q.key}`}
@@ -385,10 +385,10 @@ export function PaperForm({ paperId }: PaperFormProps) {
                       <div className="space-y-2">
                         <Label
                           htmlFor={`rubric-${q.key}`}
-                          className="text-sm font-medium text-gray-700 flex items-center gap-1"
+                          className="text-sm font-medium text-foreground flex items-center gap-1"
                         >
                           Rubric (optional){" "}
-                          <HelpCircle className="h-3 w-3 text-gray-400" />
+                          <HelpCircle className="h-3 w-3 text-muted-foreground/70" />
                         </Label>
                         <Textarea
                           id={`rubric-${q.key}`}
@@ -407,7 +407,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
             </div>
           </CardContent>
 
-          <CardFooter className="flex justify-between p-6 bg-gray-50 border-t border-gray-100">
+          <CardFooter className="flex justify-between p-6 bg-muted/50 border-t border-border">
             <Button
               variant="outline"
               onClick={addQuestion}
@@ -423,7 +423,7 @@ export function PaperForm({ paperId }: PaperFormProps) {
           <Button
             variant="outline"
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1 border-gray-300"
+            className="flex items-center gap-1 border-border"
             disabled={saving}
           >
             <ArrowLeft className="h-4 w-4" /> Cancel

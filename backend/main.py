@@ -10,6 +10,7 @@ from app.auth.route import router as auth_router
 from app.config import settings
 from app.database import IS_SQLITE, engine, init_models
 from app.evaluations.route import router as evaluations_router
+from app.leaderboard.route import router as leaderboard_router
 from app.papers.route import router as papers_router
 from app.submissions.route import router as submissions_router
 from app.utils.evaluator import EvaluationService
@@ -101,6 +102,7 @@ app.include_router(auth_router)
 app.include_router(papers_router)
 app.include_router(submissions_router)
 app.include_router(evaluations_router)
+app.include_router(leaderboard_router)
 
 
 @app.get("/health")

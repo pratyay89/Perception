@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,41 +33,62 @@ type Palette = {
   frontier: string;
   path: string;
   pathAlpha: number;
+  packet: string;
   source: string;
   target: string;
   label: string;
   glow: boolean;
 };
 
-const PALETTES: Record<Variant, Palette> = {
+// Black and ash tones, with a few accents so the search stays readable:
+// green start, rose target, amber frontier.
+const PALETTES: Record<"hero" | "subtleLight" | "subtleDark", Palette> = {
   hero: {
-    edge: "148,163,184",
+    edge: "168,162,158",
     edgeAlpha: 0.16,
-    node: "203,213,225",
-    nodeAlpha: 0.55,
-    explored: "56,189,248",
-    exploredAlpha: 0.5,
+    node: "214,211,209",
+    nodeAlpha: 0.5,
+    explored: "231,229,228",
+    exploredAlpha: 0.45,
     frontier: "251,191,36",
-    path: "196,181,253",
+    path: "255,255,255",
     pathAlpha: 1,
+    packet: "255,255,255",
     source: "52,211,153",
-    target: "244,114,182",
-    label: "203,213,225",
+    target: "251,113,133",
+    label: "214,211,209",
     glow: true,
   },
-  subtle: {
-    edge: "100,116,139",
+  subtleLight: {
+    edge: "41,37,36",
     edgeAlpha: 0.1,
-    node: "100,116,139",
+    node: "41,37,36",
     nodeAlpha: 0.22,
-    explored: "99,102,241",
-    exploredAlpha: 0.22,
+    explored: "28,25,23",
+    exploredAlpha: 0.2,
     frontier: "217,119,6",
-    path: "79,70,229",
-    pathAlpha: 0.5,
+    path: "12,10,9",
+    pathAlpha: 0.55,
+    packet: "12,10,9",
     source: "5,150,105",
-    target: "219,39,119",
-    label: "100,116,139",
+    target: "225,29,72",
+    label: "87,83,78",
+    glow: false,
+  },
+  subtleDark: {
+    edge: "214,211,209",
+    edgeAlpha: 0.08,
+    node: "214,211,209",
+    nodeAlpha: 0.2,
+    explored: "231,229,228",
+    exploredAlpha: 0.18,
+    frontier: "251,191,36",
+    path: "245,245,244",
+    pathAlpha: 0.5,
+    packet: "255,255,255",
+    source: "52,211,153",
+    target: "251,113,133",
+    label: "168,162,158",
     glow: false,
   },
 };
@@ -312,13 +334,21 @@ export function GraphSearchCanvas({
   className,
 }: GraphSearchCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // The faint background version follows the black / ash-white theme
+  const { resolvedTheme } = useTheme();
+  const paletteName =
+    variant === "hero"
+      ? "hero"
+      : resolvedTheme === "dark"
+        ? "subtleDark"
+        : "subtleLight";
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
-    const palette = PALETTES[variant];
+    const palette = PALETTES[paletteName];
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -482,7 +512,7 @@ export function GraphSearchCanvas({
         const f = t - i;
         const x = sx[a] + (sx[b] - sx[a]) * f;
         const y = sy[a] + (sy[b] - sy[a]) * f;
-        ctx.fillStyle = `rgba(255,255,255,${(variant === "hero" ? 0.95 : 0.7) * overlay})`;
+        ctx.fillStyle = `rgba(${palette.packet},${(variant === "hero" ? 0.95 : 0.7) * overlay})`;
         if (palette.glow) {
           ctx.shadowColor = `rgba(${palette.path},1)`;
           ctx.shadowBlur = 16;
@@ -656,7 +686,7 @@ export function GraphSearchCanvas({
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pointermove", onPointerMove);
     };
-  }, [variant, showLabel]);
+  }, [variant, showLabel, paletteName]);
 
   return (
     <canvas

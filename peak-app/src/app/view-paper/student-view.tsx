@@ -34,6 +34,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { PaperLeaderboardCard } from "@/components/leaderboard";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface QuestionAndAnswer {
   qid: number;
@@ -131,18 +133,21 @@ export function StudentView({ id, email }: ViewProps) {
   return (
     <div className="space-y-6">
       {/* Paper Header */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div
-          className="flex items-center mb-4 text-primary hover:text-primary/90 transition-colors cursor-pointer"
-          onClick={() => router.push("/dashboard")}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          <span className="text-sm font-medium">Back to Dashboard</span>
+      <div className="bg-card rounded-lg shadow-sm border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div
+            className="flex items-center text-primary hover:text-primary/90 transition-colors cursor-pointer"
+            onClick={() => router.push("/dashboard")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            <span className="text-sm font-medium">Back to Dashboard</span>
+          </div>
+          <ThemeToggle />
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
               {paper.title}
             </h1>
             <div className="flex flex-wrap gap-2 mt-2 items-center">
@@ -187,7 +192,7 @@ export function StudentView({ id, email }: ViewProps) {
           transition={{ duration: 0.4 }}
         >
           <Card className="overflow-hidden border-t-4 border-t-primary/70">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 pb-4">
+            <CardHeader className="bg-muted/50 pb-4">
               <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5 text-amber-500" />
                 Your Assessment Results
@@ -195,12 +200,12 @@ export function StudentView({ id, email }: ViewProps) {
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex flex-col items-center justify-center bg-gray-50 p-6 rounded-lg border">
+                <div className="flex flex-col items-center justify-center bg-muted/50 p-6 rounded-lg border">
                   <div className={`text-5xl font-bold ${grade.color} mb-2`}>
                     {grade.letter}
                   </div>
-                  <div className="text-sm text-gray-500 mb-2">Grade</div>
-                  <div className="text-xs text-center text-gray-600 max-w-[200px]">
+                  <div className="text-sm text-muted-foreground mb-2">Grade</div>
+                  <div className="text-xs text-center text-muted-foreground max-w-[200px]">
                     {grade.feedback}
                   </div>
                 </div>
@@ -208,7 +213,7 @@ export function StudentView({ id, email }: ViewProps) {
                 <div className="md:col-span-2 space-y-4">
                   <div>
                     <div className="flex justify-between mb-2">
-                      <div className="text-sm font-medium text-gray-700">
+                      <div className="text-sm font-medium text-foreground">
                         Score
                       </div>
                       <div className="text-sm font-bold">
@@ -218,7 +223,7 @@ export function StudentView({ id, email }: ViewProps) {
                     </div>
                     <div className="relative pt-1">
                       <Progress value={scorePercentage} className="h-3" />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
                         <span>0</span>
                         <span>{formatMarks(maxPossibleScore / 2)}</span>
                         <span>{formatMarks(maxPossibleScore)}</span>
@@ -247,8 +252,8 @@ export function StudentView({ id, email }: ViewProps) {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="bg-gray-50 py-3 px-6 border-t">
-              <p className="text-sm text-gray-600">
+            <CardFooter className="bg-muted/50 py-3 px-6 border-t">
+              <p className="text-sm text-muted-foreground">
                 <AlertTriangle className="h-4 w-4 inline mr-1 text-amber-500" />
                 This evaluation was done using an AI system. For any concerns,
                 please contact your teacher.
@@ -281,9 +286,9 @@ export function StudentView({ id, email }: ViewProps) {
       <div className="grid grid-cols-12 gap-6">
         {/* Questions and Answers Panel */}
         <Card className="col-span-12 shadow-sm border">
-          <CardHeader className="border-b bg-gray-50/80">
+          <CardHeader className="border-b bg-muted/50">
             <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-gray-500" />
+              <BookOpen className="h-5 w-5 text-muted-foreground" />
               Your Answers
             </CardTitle>
           </CardHeader>
@@ -297,7 +302,7 @@ export function StudentView({ id, email }: ViewProps) {
                   <TabsTrigger
                     key={qa.qid}
                     value={index.toString()}
-                    className="data-[state=active]:bg-gray-100 rounded-none border-b-2 data-[state=active]:border-primary"
+                    className="data-[state=active]:bg-muted rounded-none border-b-2 data-[state=active]:border-primary"
                   >
                     Q{index + 1}
                   </TabsTrigger>
@@ -339,8 +344,8 @@ export function StudentView({ id, email }: ViewProps) {
                               </Badge>
                             )}
                           </div>
-                          <div className="bg-gray-50 p-4 rounded-lg border">
-                            <p className="text-gray-900 whitespace-pre-wrap">
+                          <div className="bg-muted/50 p-4 rounded-lg border">
+                            <p className="text-foreground whitespace-pre-wrap">
                               {qa.question}
                             </p>
                           </div>
@@ -350,17 +355,17 @@ export function StudentView({ id, email }: ViewProps) {
 
                         {/* Your Answer */}
                         <div className="space-y-3">
-                          <h3 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
-                            <FileText className="h-4 w-4 text-gray-600" /> Your
+                          <h3 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                            <FileText className="h-4 w-4 text-muted-foreground" /> Your
                             Answer
                           </h3>
-                          <div className="bg-gray-50 p-4 rounded-lg border min-h-[100px]">
+                          <div className="bg-muted/50 p-4 rounded-lg border min-h-[100px]">
                             {qa.answer.trim() ? (
-                              <p className="text-gray-900 whitespace-pre-wrap">
+                              <p className="text-foreground whitespace-pre-wrap">
                                 {qa.answer}
                               </p>
                             ) : (
-                              <p className="text-gray-400 italic">
+                              <p className="text-muted-foreground/70 italic">
                                 No answer provided
                               </p>
                             )}
@@ -396,7 +401,7 @@ export function StudentView({ id, email }: ViewProps) {
                                 <h4 className="text-sm font-medium flex items-center gap-1.5">
                                   <FileText className="h-4 w-4" /> Feedback
                                 </h4>
-                                <div className="bg-gray-50 p-4 rounded-lg border text-sm text-gray-800 min-h-[80px] whitespace-pre-wrap">
+                                <div className="bg-muted/50 p-4 rounded-lg border text-sm text-foreground min-h-[80px] whitespace-pre-wrap">
                                   {qa.feedback ||
                                     "No specific feedback provided for this answer."}
                                 </div>
@@ -411,13 +416,15 @@ export function StudentView({ id, email }: ViewProps) {
               </div>
             </Tabs>
           </CardContent>
-          <CardFooter className="border-t bg-gray-50/80 py-4 justify-between">
-            <div className="text-xs text-gray-500">
+          <CardFooter className="border-t bg-muted/50 py-4 justify-between">
+            <div className="text-xs text-muted-foreground">
               Question {activeTab + 1} of {paper.qs_and_ans.length}
             </div>
           </CardFooter>
         </Card>
       </div>
+
+      <PaperLeaderboardCard qpid={id} />
     </div>
   );
 }

@@ -292,7 +292,7 @@ export function QPCard({ paper, user_type, onChanged }: QPCardProps) {
             </div>
           </CardHeader>
 
-          <CardContent className="text-sm text-gray-600 space-y-1">
+          <CardContent className="text-sm text-muted-foreground space-y-1">
             <p>
               {paper.question_count} question
               {paper.question_count === 1 ? "" : "s"} ·{" "}
@@ -315,14 +315,14 @@ export function QPCard({ paper, user_type, onChanged }: QPCardProps) {
             {user_type === "student" &&
               evaluated &&
               paper.marks_obtained !== null && (
-                <p className="font-medium text-gray-900">
+                <p className="font-medium text-foreground">
                   Score: {formatMarks(paper.marks_obtained)} /{" "}
                   {formatMarks(paper.total_marks)}
                 </p>
               )}
           </CardContent>
 
-          <CardFooter className="flex justify-between items-center border-t bg-gray-50/60 p-3">
+          <CardFooter className="flex justify-between items-center border-t bg-muted/50 p-3">
             {user_type === "student" && status === "open" && !attempted && (
               <Button
                 onClick={() => router.push(`/attempt-paper/${id}`)}

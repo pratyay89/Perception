@@ -122,3 +122,41 @@ export interface PaperEvaluation {
   message: string | null;
   submissions: SubmissionSummary[];
 }
+
+// GET /leaderboard/papers/{qpid}
+export interface PaperLeaderboardEntry {
+  rank: number;
+  full_name: string;
+  // Only teachers see other students' emails
+  s_email: string | null;
+  is_you: boolean;
+  marks_obtained: string;
+  percentage: number;
+}
+
+export interface PaperLeaderboard {
+  qpid: number;
+  title: string;
+  total_marks: string;
+  pending_count: number;
+  entries: PaperLeaderboardEntry[];
+}
+
+// An entry of GET /leaderboard (one per class)
+export interface ClassLeaderboardEntry {
+  rank: number;
+  full_name: string;
+  s_email: string | null;
+  is_you: boolean;
+  papers_evaluated: number;
+  marks_obtained: string;
+  total_marks: string;
+  percentage: number;
+}
+
+export interface ClassLeaderboard {
+  t_email: string;
+  teacher_name: string;
+  papers_count: number;
+  entries: ClassLeaderboardEntry[];
+}

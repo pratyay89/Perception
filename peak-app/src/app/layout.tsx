@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { LoadingProvider } from "@/components/providers/loading-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import "./globals.css";
 
 // font configurations
@@ -24,12 +25,14 @@ type RootLayoutProps = Readonly<{
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} ${geistMono.variable} antialiased`}>
-        <LoadingProvider>
-          {children}
-          <Toaster richColors />
-        </LoadingProvider>
+        <ThemeProvider>
+          <LoadingProvider>
+            {children}
+            <Toaster richColors />
+          </LoadingProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

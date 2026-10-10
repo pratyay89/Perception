@@ -7,26 +7,27 @@ body {
 }
 
 @layer base {
+  /* Light: ash white surfaces with black text and controls */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --background: 40 8% 94%;
+    --foreground: 0 0% 7%;
+    --card: 40 14% 98%;
+    --card-foreground: 0 0% 7%;
+    --popover: 40 14% 98%;
+    --popover-foreground: 0 0% 7%;
+    --primary: 0 0% 8%;
+    --primary-foreground: 40 10% 95%;
+    --secondary: 40 6% 89%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 40 6% 90%;
+    --muted-foreground: 30 3% 40%;
+    --accent: 40 6% 88%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 5% 84%;
+    --input: 40 5% 82%;
+    --ring: 0 0% 20%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -34,26 +35,27 @@ body {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+  /* Dark: true black surfaces with ash white text and controls */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background: 0 0% 3%;
+    --foreground: 40 9% 90%;
+    --card: 0 0% 6.5%;
+    --card-foreground: 40 9% 90%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 40 9% 90%;
+    --primary: 40 9% 90%;
+    --primary-foreground: 0 0% 6%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 40 9% 90%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 30 4% 62%;
+    --accent: 0 0% 14%;
+    --accent-foreground: 40 9% 90%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 16%;
+    --input: 0 0% 18%;
+    --ring: 40 6% 70%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -64,20 +66,64 @@ body {
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
   }
 }
 
-
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+/*
+ * Status colours (green = good, red = problem, blue = info, amber = warning)
+ * are written with light-theme utilities such as bg-green-50 and
+ * text-green-700. On black those would glare, so the dark theme swaps them
+ * for translucent tints and lighter text.
+ */
+.dark :is(.bg-green-50, .bg-green-100, .bg-emerald-50) {
+  background-color: rgb(34 197 94 / 0.12);
+}
+.dark :is(.bg-red-50, .bg-red-100) {
+  background-color: rgb(239 68 68 / 0.12);
+}
+.dark :is(.bg-blue-50, .bg-blue-100, .bg-blue-50\/40) {
+  background-color: rgb(59 130 246 / 0.12);
+}
+.dark :is(.bg-blue-200, .hover\:bg-blue-200:hover) {
+  background-color: rgb(59 130 246 / 0.22);
+}
+.dark :is(.bg-amber-50, .bg-amber-100) {
+  background-color: rgb(245 158 11 / 0.12);
+}
+.dark
+  :is(
+    .text-green-600,
+    .text-green-700,
+    .text-green-800,
+    .text-green-900,
+    .text-emerald-600,
+    .text-emerald-700
+  ) {
+  color: rgb(134 239 172);
+}
+.dark :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) {
+  color: rgb(252 165 165);
+}
+.dark :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900) {
+  color: rgb(147 197 253);
+}
+.dark
+  :is(.text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800) {
+  color: rgb(252 211 77);
+}
+.dark :is(.border-green-100, .border-green-200) {
+  border-color: rgb(34 197 94 / 0.3);
+}
+.dark :is(.border-red-200) {
+  border-color: rgb(239 68 68 / 0.3);
+}
+.dark :is(.border-blue-100, .border-blue-200) {
+  border-color: rgb(59 130 246 / 0.3);
+}
+.dark :is(.border-amber-200) {
+  border-color: rgb(245 158 11 / 0.3);
 }
